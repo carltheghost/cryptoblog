@@ -78,13 +78,16 @@ def run_one_market(seed: int, *, spread: float, strategy_name: str,
 
         ctx = StrategyContext(velocity=velocity, seconds_left=seconds_left,
                               have_position=side_held is not None, side_held=side_held,
-                              unrealized=unreal, fair=fair, spread=spread, imbalance=imbalance)
+                              unrealized=unreal, fair=fair, spread=spread, imbalance=imbalance,
+                              prices=tuple(prices[-90:]), price=price, target=target,
+                              seconds_total=duration)
         sig = strat.decide(ctx)
+        n = max(1, int(round(contracts_per_trade * sig.size_frac)))
 
         if sig.action == "buy_yes":
-            acct.buy(market, "yes", contracts_per_trade, yes_ask, sig.reason)
+            acct.buy(market, "yes", n, yes_ask, sig.reason)
         elif sig.action == "buy_no":
-            acct.buy(market, "no", contracts_per_trade, no_ask, sig.reason)
+            acct.buy(market, "no", n, no_ask, sig.reason)
         elif sig.action == "take_profit":
             if have_yes:
                 acct.sell(market, "yes", acct.positions[yes_key].contracts, yes_bid, sig.reason)

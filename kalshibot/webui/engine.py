@@ -169,11 +169,12 @@ class SimEngine:
             ctx = StrategyContext(velocity=velocity, seconds_left=seconds_left,
                                   have_position=side_held is not None, side_held=side_held,
                                   unrealized=unreal, fair=fair, spread=p["spread"],
-                                  imbalance=self.imbalance)
+                                  imbalance=self.imbalance, prices=tuple(self.history)[-90:],
+                                  price=self.price, target=self.target, seconds_total=self.DURATION)
             sig = self.strat.decide(ctx)
             self.agents["momentum"] = max(self.agents["momentum"], 0.5)
 
-            n = int(p["contracts"])
+            n = max(1, int(round(p["contracts"] * sig.size_frac)))
             acted = False
             if sig.action == "buy_yes":
                 acted = self.acct.buy(self.MARKET, "yes", n, yes_ask, sig.reason)

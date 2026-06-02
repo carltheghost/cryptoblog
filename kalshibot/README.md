@@ -26,10 +26,15 @@ The offline backtest charges those costs honestly and ranks four strategies
 |----------|------|-----|-----------|------|
 | `spread` | strong signal + tight book, hold to settle | +$89 | 2.0 | $68 |
 | `imbalance` | trade order-book imbalance (here: pure noise) | −$52 | 2.0 | $70 |
+| `chronos` | bidirectional Brownian-bridge + regime + Kelly | −$785 | 8.9 | $341 |
 | `momentum` | ride + take profit, churn | −$870 | 9.2 | $401 |
 | `fade` | mean-reversion, fade overextended moves | −$1059 | 7.8 | $479 |
 
-Two robust takeaways:
+**The most complex strategy (`chronos`) loses badly** — far worse than the
+simplest disciplined one (`spread`). That is the headline lesson, not an accident:
+elaborate bidirectional re-evaluation reacts to noise, re-trades, and pays the fee
+toll over and over. In trading, complexity is usually how you lose. Two robust
+takeaways:
 
 1. **Turnover is the enemy.** The churners (`momentum`, `fade`) pay 6–7× the fees
    and lose an order of magnitude more. Trading less is the single biggest lever.
@@ -84,7 +89,7 @@ Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 |------|--------------|
 | `fees.py` | Honest Kalshi fee + spread model (the costs that kill churn). |
 | `paper_account.py` | Simulated account: cash, positions, settlement, P&L, trade log. |
-| `strategy.py` | Four strategies (momentum / fade / spread / imbalance) + registry. |
+| `strategy.py` | Five strategies (momentum / fade / spread / imbalance / chronos) + registry. |
 | `kalshi_client.py` | Read-only market-data client. `place_order` is disabled. |
 | `backtest.py` | Offline simulation of many 15-min markets with realistic vol. |
 | `run_paper.py` | Live paper loop against real prices. |

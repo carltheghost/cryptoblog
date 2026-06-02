@@ -86,11 +86,12 @@ def run(series: str, minutes: int, contracts: int, poll: float,
                               unrealized=unreal, fair=mid, spread=max(0.0, yes_ask - yes_bid),
                               imbalance=imbalance)
         sig = strat.decide(ctx)
+        n = max(1, int(round(contracts * sig.size_frac)))
 
         if sig.action == "buy_yes" and yes_ask:
-            acct.buy(ticker, "yes", contracts, yes_ask, sig.reason)
+            acct.buy(ticker, "yes", n, yes_ask, sig.reason)
         elif sig.action == "buy_no" and yes_bid:
-            acct.buy(ticker, "no", contracts, max(0.01, 1 - yes_ask), sig.reason)
+            acct.buy(ticker, "no", n, max(0.01, 1 - yes_ask), sig.reason)
         elif sig.action == "take_profit":
             if key_yes in acct.positions:
                 acct.sell(ticker, "yes", acct.positions[key_yes].contracts, yes_bid, sig.reason)
