@@ -19,16 +19,34 @@ doesn't work, and the code here shows why:
 - "Thousands/millions of trades in minutes" is impossible anyway — Kalshi rate-
   limits orders to a few per second on standard tiers.
 
-The offline backtest charges those costs honestly and ranks three strategies:
+The offline backtest charges those costs honestly and ranks four strategies
+(200 markets, 20 contracts/trade, 2¢ spread, `signal_edge 0%`):
 
-| strategy | idea | result (200 mkts, 20 contracts, 2¢ spread) |
-|----------|------|--------------------------------------------|
-| `spread` | enter only on a strong signal + tight book, hold to settle | **best: −$296, 2 trades/mkt, $67 fees** |
-| `fade`   | mean-reversion, fade overextended moves | −$740, 9.2 trades/mkt, $563 fees |
-| `momentum` | the screenshot idea: ride + take profit, churn | **worst: −$792, 8.5 trades/mkt, $405 fees** |
+| strategy | idea | P&L | trades/mkt | fees |
+|----------|------|-----|-----------|------|
+| `spread` | strong signal + tight book, hold to settle | +$89 | 2.0 | $68 |
+| `imbalance` | trade order-book imbalance (here: pure noise) | −$52 | 2.0 | $70 |
+| `momentum` | ride + take profit, churn | −$870 | 9.2 | $401 |
+| `fade` | mean-reversion, fade overextended moves | −$1059 | 7.8 | $479 |
 
-All three lose after costs — the least-bad is the one that **trades least**.
-Turnover is the enemy here, not the goal.
+Two robust takeaways:
+
+1. **Turnover is the enemy.** The churners (`momentum`, `fade`) pay 6–7× the fees
+   and lose an order of magnitude more. Trading less is the single biggest lever.
+2. **A real signal is what tips you positive.** With `--edge 0` the `imbalance`
+   strategy is just noise and loses. Give it genuine predictive power and it
+   turns positive:
+
+   ```
+   python -m kalshibot.backtest --strategy imbalance --edge 0.4   # +$162
+   ```
+
+> ⚠️ **Honesty caveat:** the small *positive* numbers for `spread`/`imbalance`
+> are partly a **simulator artifact** — the fair-price model assumes a pure
+> random walk, so when the sim injects persistent drift, the "market" misprices
+> it and low-turnover strategies exploit that gap. A real market would price the
+> drift in. Treat the sim as a tool to see the *fee mechanics*, not as proof any
+> strategy makes money. Only a live paper run on real Kalshi data settles that.
 
 ## Quick start
 
@@ -50,8 +68,10 @@ python -m kalshibot.webui
 A localhost control deck (stdlib only, no pip installs) that renders the agents
 as a live "neural network" — Market Feed → Momentum → Risk/Fees → Account →
 Notifier — with pulses firing along the edges on every trade, a live BTC-vs-
-target chart, a **strategy dropdown** (momentum/fade/spread, switch live), and an
-**equity-vs-cumulative-fees overlay** so the cost bleed is impossible to miss.
+target chart, a **strategy dropdown** (momentum/fade/spread/imbalance, switch
+live), a **signal-edge slider** to dial the imbalance signal's predictive power,
+a live book-imbalance readout, and an **equity-vs-cumulative-fees overlay** so
+the cost bleed is impossible to miss.
 Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 **simulation feed** so it works offline. Paper/sim only — no order leaves the machine.
 
@@ -64,7 +84,7 @@ Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 |------|--------------|
 | `fees.py` | Honest Kalshi fee + spread model (the costs that kill churn). |
 | `paper_account.py` | Simulated account: cash, positions, settlement, P&L, trade log. |
-| `strategy.py` | Three strategies (momentum / fade / spread) + a registry. |
+| `strategy.py` | Four strategies (momentum / fade / spread / imbalance) + registry. |
 | `kalshi_client.py` | Read-only market-data client. `place_order` is disabled. |
 | `backtest.py` | Offline simulation of many 15-min markets with realistic vol. |
 | `run_paper.py` | Live paper loop against real prices. |

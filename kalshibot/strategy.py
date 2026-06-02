@@ -32,6 +32,7 @@ class StrategyContext:
     unrealized: float        # per-contract gain in dollars at current bid
     fair: float              # model fair "yes" price (0..1)
     spread: float            # current bid/ask spread in dollars
+    imbalance: float = 0.0   # order-book imbalance, -1 (sell) .. +1 (buy)
 
 
 class Strategy:
@@ -107,10 +108,39 @@ class SpreadAwareStrategy(Strategy):
         return Signal("hold", "signal not strong enough")
 
 
+class OrderBookImbalanceStrategy(Strategy):
+    """Trade a *real* predictive signal: order-book imbalance. Strong buy-side
+    depth (positive imbalance) leans the next moves up, and vice versa. Enters in
+    the imbalance direction when the book is tight, then holds to settlement
+    (low turnover, same disciplined chassis as `spread`).
+
+    This is the strategy to A/B for an actual edge. In the simulation its signal
+    quality is governed by `signal_edge` (0 = pure noise -> still loses to fees;
+    higher = more genuine predictive power). On live paper data the imbalance is
+    computed from the real Kalshi order book, so the P&L tells you the truth."""
+    name = "imbalance"
+    entry_imbalance: float = 0.35    # |imbalance| needed to act
+    max_spread: float = 0.02
+
+    def decide(self, ctx: StrategyContext) -> Signal:
+        if ctx.have_position:
+            return Signal("hold", "holding to settlement")
+        if ctx.seconds_left < max(self.min_seconds_left, 120):
+            return Signal("hold", "no time for thesis to play out")
+        if ctx.spread > self.max_spread:
+            return Signal("hold", f"spread {ctx.spread:.2f} too wide")
+        if ctx.imbalance >= self.entry_imbalance:
+            return Signal("buy_yes", f"book imbalance {ctx.imbalance:+.2f}")
+        if ctx.imbalance <= -self.entry_imbalance:
+            return Signal("buy_no", f"book imbalance {ctx.imbalance:+.2f}")
+        return Signal("hold", "book balanced")
+
+
 STRATEGIES = {
     "momentum": MomentumStrategy,
     "fade": FadeExtremesStrategy,
     "spread": SpreadAwareStrategy,
+    "imbalance": OrderBookImbalanceStrategy,
 }
 
 

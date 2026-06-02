@@ -110,6 +110,10 @@
         <input type="range" id="r-sp" min="1" max="8" step="1" value="2" oninput="tune()">
       </div>
       <div class="ctrl">
+        <label>Signal edge (%) — imbalance only <b id="l-ed">0</b></label>
+        <input type="range" id="r-ed" min="0" max="100" step="5" value="0" oninput="tune()">
+      </div>
+      <div class="ctrl">
         <label>Sim speed (ticks/s) <b id="l-sd">8</b></label>
         <input type="range" id="r-sd" min="1" max="40" step="1" value="8" oninput="tune()">
       </div>
@@ -121,6 +125,7 @@
         <div><span>target</span> $<b id="m-target">—</b></div>
         <div><span>velocity</span> <b id="m-vel">—</b></div>
         <div><span>expires</span> <b id="m-left">—</b></div>
+        <div><span>book imbal.</span> <b id="m-imb">—</b></div>
       </div>
       <div class="quote">
         <div class="q up"><div id="q-up">—%</div><span style="font-size:10px;color:var(--dim)">UP / yes</span></div>
@@ -146,6 +151,7 @@ const STRAT_DESC = {
   momentum:"Ride the move, take small profits. High turnover -> heavy fee drag.",
   fade:"Mean reversion: bet AGAINST overextended spikes/dumps.",
   spread:"Disciplined: enter only on a strong signal with a tight book, then hold to settlement. Trades rarely on purpose.",
+  imbalance:"Trades a REAL signal: order-book imbalance. In sim, the 'signal edge' slider sets how predictive it is (0% = noise -> still loses; higher = real edge). On live paper data the imbalance is the real Kalshi book.",
 };
 const NODES = {
   feed:    {x:.10, y:.50, label:"MARKET FEED",  color:"#49b4ff"},
@@ -280,6 +286,9 @@ function render(){
   document.getElementById('m-target').textContent= STATE.target.toFixed(2);
   const vel=document.getElementById('m-vel');
   vel.textContent=(STATE.velocity>0?'+':'')+STATE.velocity; vel.className=STATE.velocity>=0?'pos':'neg';
+  const imb=document.getElementById('m-imb');
+  imb.textContent=(STATE.imbalance>0?'+':'')+STATE.imbalance.toFixed(2);
+  imb.className=STATE.imbalance>=0?'pos':'neg';
   const sl=STATE.seconds_left; document.getElementById('m-left').textContent=
     Math.floor(sl/60)+':'+String(sl%60).padStart(2,'0');
   document.getElementById('q-up').textContent=Math.round(STATE.fair*100)+'%';
@@ -311,16 +320,17 @@ async function setStrat(){ const v=document.getElementById('sel-strat').value;
     body:JSON.stringify({cmd:'set_params',strategy:v})}); poll(); }
 let tuneTimer=null;
 function tune(){
-  const ev=+r('r-ev'),tp=+r('r-tp'),ct=+r('r-ct'),sp=+r('r-sp'),sd=+r('r-sd');
+  const ev=+r('r-ev'),tp=+r('r-tp'),ct=+r('r-ct'),sp=+r('r-sp'),sd=+r('r-sd'),ed=+r('r-ed');
   document.getElementById('l-ev').textContent=ev;
   document.getElementById('l-tp').textContent=tp;
   document.getElementById('l-ct').textContent=ct;
   document.getElementById('l-sp').textContent=sp;
   document.getElementById('l-sd').textContent=sd;
+  document.getElementById('l-ed').textContent=ed;
   clearTimeout(tuneTimer); tuneTimer=setTimeout(()=>{
     fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({cmd:'set_params',entry_velocity:ev,take_profit:tp/100,
-        contracts:ct,spread:sp/100,speed:sd})});
+        contracts:ct,spread:sp/100,speed:sd,signal_edge:ed/100})});
   },120);
 }
 function r(id){return document.getElementById(id).value;}

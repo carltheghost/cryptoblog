@@ -32,7 +32,8 @@ class SimEngine:
             "take_profit": 0.06,
             "contracts": 10,
             "spread": 0.02,
-            "speed": 8.0,        # simulated ticks per real second
+            "speed": 8.0,         # simulated ticks per real second
+            "signal_edge": 0.0,   # imbalance signal quality, 0..1
         }
         self.strategy_name = "momentum"
 
@@ -59,6 +60,8 @@ class SimEngine:
                                    self.params["entry_velocity"], self.params["take_profit"])
         self.target = 71000.0
         self.price = self.target + self.rng.uniform(-50, 50)
+        self.drift = 0.0
+        self.imbalance = 0.0
         self.t = 0
         self.history.clear(); self.history.append(self.price)
         self.equity_hist.clear(); self.equity_hist.append(self.start_balance)
@@ -118,8 +121,13 @@ class SimEngine:
             for pulse in self.pulses:
                 pulse["age"] += 1
 
-            # 1) FEED
-            self.price += self.rng.gauss(0, self.VOL)
+            # 1) FEED: persistent drift + noise; imbalance partially reveals drift
+            self.drift = self.drift * 0.92 + self.rng.gauss(0, 1.6)
+            self.price += self.drift + self.rng.gauss(0, 6.0)
+            true_sig = max(-1.0, min(1.0, self.drift / 8.0))
+            edge = p["signal_edge"]
+            self.imbalance = max(-1.0, min(1.0,
+                              edge * true_sig + (1 - edge) * self.rng.uniform(-1, 1)))
             self.t += 1
             self.history.append(self.price)
             self.agents["feed"] = 1.0
@@ -141,7 +149,7 @@ class SimEngine:
 
             velocity = self.price - self.history[max(0, len(self.history) - 11)]
             distance = self.price - self.target
-            fair = _contract_price(distance, seconds_left, self.VOL)
+            fair = _contract_price(distance, seconds_left, 7.3)
             yes_ask = min(0.99, fair + p["spread"] / 2)
             yes_bid = max(0.01, fair - p["spread"] / 2)
             no_ask = min(0.99, (1 - fair) + p["spread"] / 2)
@@ -160,7 +168,8 @@ class SimEngine:
 
             ctx = StrategyContext(velocity=velocity, seconds_left=seconds_left,
                                   have_position=side_held is not None, side_held=side_held,
-                                  unrealized=unreal, fair=fair, spread=p["spread"])
+                                  unrealized=unreal, fair=fair, spread=p["spread"],
+                                  imbalance=self.imbalance)
             sig = self.strat.decide(ctx)
             self.agents["momentum"] = max(self.agents["momentum"], 0.5)
 
@@ -217,6 +226,7 @@ class SimEngine:
                 "price": round(self.price, 2),
                 "target": round(self.target, 2),
                 "velocity": round(getattr(self, "velocity", 0.0), 1),
+                "imbalance": round(getattr(self, "imbalance", 0.0), 2),
                 "yes_bid": round(getattr(self, "yes_bid", 0.5), 2),
                 "yes_ask": round(getattr(self, "yes_ask", 0.5), 2),
                 "fair": round(getattr(self, "fair", 0.5), 3),

@@ -20,6 +20,14 @@ from .paper_account import PaperAccount
 from .strategy import StrategyContext, make_strategy
 
 
+def book_imbalance(orderbook: dict, depth: int = 5) -> float:
+    """Order-book imbalance in [-1, 1]: +1 = all buy-yes depth, -1 = all no depth."""
+    yes = sum(sz for _, sz in (orderbook.get("yes") or [])[:depth])
+    no = sum(sz for _, sz in (orderbook.get("no") or [])[:depth])
+    total = yes + no
+    return 0.0 if total == 0 else (yes - no) / total
+
+
 def pick_market(client: KalshiClient, series: str) -> dict | None:
     markets = client.list_markets(series_ticker=series, status="open", limit=50)
     # prefer the soonest-closing open market with a live quote
@@ -55,6 +63,10 @@ def run(series: str, minutes: int, contracts: int, poll: float,
         ticker = market["ticker"]
         m = client.get_market(ticker)
         yes_bid, yes_ask = KalshiClient.best_bid_ask(m)
+        try:
+            imbalance = book_imbalance(client.get_orderbook(ticker))
+        except Exception:
+            imbalance = 0.0
         mid = (yes_bid + yes_ask) / 2 if (yes_bid and yes_ask) else (yes_bid or yes_ask)
         velocity = 0.0 if last_mid is None else (mid - last_mid) * 1000  # cents->signal
         last_mid = mid
@@ -71,7 +83,8 @@ def run(series: str, minutes: int, contracts: int, poll: float,
 
         ctx = StrategyContext(velocity=velocity, seconds_left=999,
                               have_position=side_held is not None, side_held=side_held,
-                              unrealized=unreal, fair=mid, spread=max(0.0, yes_ask - yes_bid))
+                              unrealized=unreal, fair=mid, spread=max(0.0, yes_ask - yes_bid),
+                              imbalance=imbalance)
         sig = strat.decide(ctx)
 
         if sig.action == "buy_yes" and yes_ask:
