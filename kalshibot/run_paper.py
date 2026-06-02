@@ -17,7 +17,7 @@ import time
 
 from .kalshi_client import KalshiClient
 from .paper_account import PaperAccount
-from .strategy import MomentumStrategy
+from .strategy import StrategyContext, make_strategy
 
 
 def pick_market(client: KalshiClient, series: str) -> dict | None:
@@ -28,10 +28,11 @@ def pick_market(client: KalshiClient, series: str) -> dict | None:
     return markets[0] if markets else None
 
 
-def run(series: str, minutes: int, contracts: int, poll: float) -> None:
+def run(series: str, minutes: int, contracts: int, poll: float,
+        strategy: str = "momentum") -> None:
     client = KalshiClient()
     acct = PaperAccount(cash=21.0)
-    strat = MomentumStrategy()
+    strat = make_strategy(strategy)
 
     print(f"[paper] connecting to {client.base_url}")
     try:
@@ -59,16 +60,19 @@ def run(series: str, minutes: int, contracts: int, poll: float) -> None:
         last_mid = mid
 
         key_yes, key_no = f"{ticker}:yes", f"{ticker}:no"
-        have = key_yes in acct.positions or key_no in acct.positions
-        if key_yes in acct.positions:
+        have_yes, have_no = key_yes in acct.positions, key_no in acct.positions
+        side_held = "yes" if have_yes else "no" if have_no else None
+        if have_yes:
             unreal = yes_bid - acct.positions[key_yes].avg_price
-        elif key_no in acct.positions:
+        elif have_no:
             unreal = (1 - yes_ask) - acct.positions[key_no].avg_price
         else:
             unreal = 0.0
 
-        sig = strat.decide(velocity=velocity, seconds_left=999,
-                           have_position=have, unrealized=unreal)
+        ctx = StrategyContext(velocity=velocity, seconds_left=999,
+                              have_position=side_held is not None, side_held=side_held,
+                              unrealized=unreal, fair=mid, spread=max(0.0, yes_ask - yes_bid))
+        sig = strat.decide(ctx)
 
         if sig.action == "buy_yes" and yes_ask:
             acct.buy(ticker, "yes", contracts, yes_ask, sig.reason)
@@ -94,8 +98,10 @@ def main() -> None:
     ap.add_argument("--minutes", type=int, default=30, help="how long to run")
     ap.add_argument("--contracts", type=int, default=10, help="contracts per trade")
     ap.add_argument("--poll", type=float, default=2.0, help="seconds between polls")
+    ap.add_argument("--strategy", default="momentum",
+                    choices=["momentum", "fade", "spread"])
     args = ap.parse_args()
-    run(args.series, args.minutes, args.contracts, args.poll)
+    run(args.series, args.minutes, args.contracts, args.poll, args.strategy)
 
 
 if __name__ == "__main__":

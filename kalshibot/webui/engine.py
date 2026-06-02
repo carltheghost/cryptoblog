@@ -1,6 +1,6 @@
 """Background simulation engine that powers the web UI.
 
-Runs a synthetic 15-minute BTC target market in a thread, feeds the momentum
+Runs a synthetic 15-minute BTC target market in a thread, feeds the selected
 strategy, books fills into a PaperAccount, and exposes a thread-safe snapshot of
 everything for the browser to render. No real orders, ever.
 """
@@ -13,7 +13,7 @@ import time
 from collections import deque
 
 from ..paper_account import PaperAccount
-from ..strategy import MomentumStrategy
+from ..strategy import StrategyContext, make_strategy, STRATEGIES
 from ..backtest import _contract_price
 
 
@@ -27,7 +27,6 @@ class SimEngine:
         self.rng = random.Random(42)
         self.start_balance = start_balance
 
-        # tunable params (controllable from the UI)
         self.params = {
             "entry_velocity": 25.0,
             "take_profit": 0.06,
@@ -35,14 +34,16 @@ class SimEngine:
             "spread": 0.02,
             "speed": 8.0,        # simulated ticks per real second
         }
+        self.strategy_name = "momentum"
 
-        self.history = deque(maxlen=180)   # recent prices for the chart
-        self.events = deque(maxlen=40)      # recent log lines
-        # per-agent activity level 0..1, decays each tick
+        self.history = deque(maxlen=180)        # recent prices
+        self.equity_hist = deque(maxlen=180)    # equity curve
+        self.fees_hist = deque(maxlen=180)      # cumulative fees
+        self.events = deque(maxlen=40)
         self.agents = {
             "feed": 0.0, "momentum": 0.0, "risk": 0.0, "account": 0.0, "notifier": 0.0,
         }
-        self.pulses = []   # transient edge animations for the graph
+        self.pulses = []
 
         self._running = False
         self._stop = False
@@ -54,12 +55,14 @@ class SimEngine:
     # ---- lifecycle --------------------------------------------------------
     def _reset_state(self):
         self.acct = PaperAccount(cash=self.start_balance)
-        self.strat = MomentumStrategy()
+        self.strat = make_strategy(self.strategy_name,
+                                   self.params["entry_velocity"], self.params["take_profit"])
         self.target = 71000.0
         self.price = self.target + self.rng.uniform(-50, 50)
         self.t = 0
-        self.history.clear()
-        self.history.append(self.price)
+        self.history.clear(); self.history.append(self.price)
+        self.equity_hist.clear(); self.equity_hist.append(self.start_balance)
+        self.fees_hist.clear(); self.fees_hist.append(0.0)
         self.last_signal = {"action": "hold", "reason": "idle"}
         for k in self.agents:
             self.agents[k] = 0.0
@@ -81,6 +84,12 @@ class SimEngine:
 
     def set_params(self, **kw):
         with self.lock:
+            name = kw.pop("strategy", None)
+            if name in STRATEGIES and name != self.strategy_name:
+                self.strategy_name = name
+                self.strat = make_strategy(name, self.params["entry_velocity"],
+                                           self.params["take_profit"])
+                self._log(f"strategy -> {name}")
             for k, v in kw.items():
                 if k in self.params:
                     try:
@@ -89,7 +98,6 @@ class SimEngine:
                         pass
             self.strat.entry_velocity = self.params["entry_velocity"]
             self.strat.take_profit = self.params["take_profit"]
-            self._log(f"params updated: {self.params}")
 
     # ---- main loop --------------------------------------------------------
     def _loop(self):
@@ -104,34 +112,31 @@ class SimEngine:
     def _tick(self):
         with self.lock:
             p = self.params
-            # decay agent activity
             for k in self.agents:
                 self.agents[k] *= 0.75
             self.pulses = [pulse for pulse in self.pulses if pulse["age"] < 6]
             for pulse in self.pulses:
                 pulse["age"] += 1
 
-            # 1) FEED: advance the synthetic price
+            # 1) FEED
             self.price += self.rng.gauss(0, self.VOL)
             self.t += 1
             self.history.append(self.price)
             self.agents["feed"] = 1.0
             seconds_left = self.DURATION - self.t
 
-            # market expiry -> settle + roll a new market
             if seconds_left <= 0:
                 won = self.price > self.target
-                key_yes = f"{self.MARKET}:yes"
-                key_no = f"{self.MARKET}:no"
-                if key_yes in self.acct.positions:
+                if f"{self.MARKET}:yes" in self.acct.positions:
                     self.acct.settle(self.MARKET, "yes", won=won)
-                if key_no in self.acct.positions:
+                if f"{self.MARKET}:no" in self.acct.positions:
                     self.acct.settle(self.MARKET, "no", won=not won)
                 self.agents["account"] = 1.0
                 self._pulse("account", "notifier")
                 self._log(f"market expired {'UP' if won else 'DOWN'} -> settled")
                 self.t = 0
                 self.target = round(self.price + self.rng.uniform(-40, 40), 2)
+                self._record_curves()
                 return
 
             velocity = self.price - self.history[max(0, len(self.history) - 11)]
@@ -140,15 +145,12 @@ class SimEngine:
             yes_ask = min(0.99, fair + p["spread"] / 2)
             yes_bid = max(0.01, fair - p["spread"] / 2)
             no_ask = min(0.99, (1 - fair) + p["spread"] / 2)
-
             self.yes_bid, self.yes_ask = yes_bid, yes_ask
             self.velocity, self.seconds_left, self.fair = velocity, seconds_left, fair
 
-            # 2) MOMENTUM agent decides
             key_yes, key_no = f"{self.MARKET}:yes", f"{self.MARKET}:no"
-            have_yes = key_yes in self.acct.positions
-            have_no = key_no in self.acct.positions
-            have = have_yes or have_no
+            have_yes, have_no = key_yes in self.acct.positions, key_no in self.acct.positions
+            side_held = "yes" if have_yes else "no" if have_no else None
             if have_yes:
                 unreal = yes_bid - self.acct.positions[key_yes].avg_price
             elif have_no:
@@ -156,11 +158,12 @@ class SimEngine:
             else:
                 unreal = 0.0
 
-            sig = self.strat.decide(velocity=velocity, seconds_left=seconds_left,
-                                    have_position=have, unrealized=unreal)
+            ctx = StrategyContext(velocity=velocity, seconds_left=seconds_left,
+                                  have_position=side_held is not None, side_held=side_held,
+                                  unrealized=unreal, fair=fair, spread=p["spread"])
+            sig = self.strat.decide(ctx)
             self.agents["momentum"] = max(self.agents["momentum"], 0.5)
 
-            # 3) RISK/FEES + 4) ACCOUNT execute
             n = int(p["contracts"])
             acted = False
             if sig.action == "buy_yes":
@@ -173,7 +176,7 @@ class SimEngine:
                                            self.acct.positions[key_yes].contracts, yes_bid, sig.reason)
                 elif have_no:
                     acted = self.acct.sell(self.MARKET, "no",
-                                           self.acct.positions[key_no].contracts, yes_bid, sig.reason)
+                                           self.acct.positions[key_no].contracts, 1 - yes_ask, sig.reason)
 
             if acted:
                 self.last_signal = {"action": sig.action, "reason": sig.reason}
@@ -181,13 +184,17 @@ class SimEngine:
                 self.agents["risk"] = 1.0
                 self.agents["account"] = 1.0
                 self.agents["notifier"] = 1.0
-                self._pulse("feed", "momentum")
-                self._pulse("momentum", "risk")
-                self._pulse("risk", "account")
-                self._pulse("account", "notifier")
+                self._pulse("feed", "momentum"); self._pulse("momentum", "risk")
+                self._pulse("risk", "account"); self._pulse("account", "notifier")
                 self._log(f"{sig.action}  ({sig.reason})  fees=${self.acct.total_fees_paid:.2f}")
 
+            self._record_curves()
+
     # ---- helpers ----------------------------------------------------------
+    def _record_curves(self):
+        self.equity_hist.append(round(self.acct.equity(), 2))
+        self.fees_hist.append(round(self.acct.total_fees_paid, 2))
+
     def _pulse(self, src, dst):
         self.pulses.append({"src": src, "dst": dst, "age": 0})
 
@@ -201,9 +208,10 @@ class SimEngine:
                  "avg_price": round(p.avg_price, 3)}
                 for p in self.acct.positions.values()
             ]
-            equity = self.acct.equity()
             return {
                 "running": self._running,
+                "strategy": self.strategy_name,
+                "strategies": list(STRATEGIES.keys()),
                 "tick": self.t,
                 "seconds_left": getattr(self, "seconds_left", self.DURATION),
                 "price": round(self.price, 2),
@@ -213,9 +221,11 @@ class SimEngine:
                 "yes_ask": round(getattr(self, "yes_ask", 0.5), 2),
                 "fair": round(getattr(self, "fair", 0.5), 3),
                 "history": list(self.history),
+                "equity_history": list(self.equity_hist),
+                "fees_history": list(self.fees_hist),
                 "account": {
                     "cash": round(self.acct.cash, 2),
-                    "equity": round(equity, 2),
+                    "equity": round(self.acct.equity(), 2),
                     "realized_pnl": round(self.acct.realized_pnl, 2),
                     "fees": round(self.acct.total_fees_paid, 2),
                     "trades": len(self.acct.fills),

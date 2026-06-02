@@ -85,6 +85,13 @@
       </div>
     </div>
     <div class="card">
+      <h2>Strategy</h2>
+      <select id="sel-strat" onchange="setStrat()" style="width:100%;padding:9px;
+        background:#16203a;color:var(--txt);border:1px solid var(--line);border-radius:8px;
+        font-family:inherit;font-size:12px"></select>
+      <div class="warn" id="strat-desc" style="color:var(--dim)"></div>
+    </div>
+    <div class="card">
       <h2>Strategy Tuning</h2>
       <div class="ctrl">
         <label>Entry velocity ($) <b id="l-ev">25</b></label>
@@ -135,9 +142,14 @@
   </div>
 </main>
 <script>
+const STRAT_DESC = {
+  momentum:"Ride the move, take small profits. High turnover -> heavy fee drag.",
+  fade:"Mean reversion: bet AGAINST overextended spikes/dumps.",
+  spread:"Disciplined: enter only on a strong signal with a tight book, then hold to settlement. Trades rarely on purpose.",
+};
 const NODES = {
   feed:    {x:.10, y:.50, label:"MARKET FEED",  color:"#49b4ff"},
-  momentum:{x:.33, y:.30, label:"MOMENTUM",     color:"#b388ff"},
+  momentum:{x:.33, y:.30, label:"STRATEGY",     color:"#b388ff"},
   risk:    {x:.33, y:.70, label:"RISK / FEES",  color:"#ffc861"},
   account: {x:.62, y:.50, label:"PAPER ACCOUNT",color:"#27e0a3"},
   notifier:{x:.86, y:.50, label:"NOTIFIER",     color:"#ff8fd0"},
@@ -183,6 +195,30 @@ function draw(t){
     cx.arc(W-2,yOf(h[n-1]),4,0,6.28); cx.fill();
   }
 
+  // fees-vs-equity overlay (top-left inset)
+  if(STATE && STATE.equity_history.length>1){
+    const eq=STATE.equity_history, fe=STATE.fees_history;
+    const px=16, py=14, pw=Math.min(300,W*0.34), ph=110;
+    cx.fillStyle="rgba(10,15,28,.82)"; cx.strokeStyle="rgba(60,80,130,.5)"; cx.lineWidth=1;
+    cx.beginPath(); cx.rect(px,py,pw,ph); cx.fill(); cx.stroke();
+    const all=eq.concat(fe); let lo=Math.min(...all,0), hi=Math.max(...all,1);
+    if(hi-lo<1) hi=lo+1;
+    const yOf=v=>py+ph-8-((v-lo)/(hi-lo))*(ph-22);
+    const line=(arr,col)=>{ cx.strokeStyle=col; cx.lineWidth=1.8; cx.beginPath();
+      const n=arr.length; for(let i=0;i<n;i++){const x=px+6+(i/(n-1))*(pw-12),y=yOf(arr[i]);
+        i?cx.lineTo(x,y):cx.moveTo(x,y);} cx.stroke(); };
+    // zero/start baseline
+    cx.strokeStyle="rgba(124,137,173,.4)"; cx.setLineDash([3,3]); cx.beginPath();
+    cx.moveTo(px+6,yOf(eq[0])); cx.lineTo(px+pw-6,yOf(eq[0])); cx.stroke(); cx.setLineDash([]);
+    line(eq,"#27e0a3"); line(fe,"#ffc861");
+    cx.font="10px monospace"; cx.fillStyle="#27e0a3";
+    cx.fillText("equity $"+eq[eq.length-1].toFixed(2), px+8, py+14);
+    cx.fillStyle="#ffc861";
+    cx.fillText("fees $"+fe[fe.length-1].toFixed(2), px+8, py+27);
+    cx.fillStyle="rgba(124,137,173,.8)";
+    cx.fillText("equity vs cumulative fees", px+8, py+ph-5);
+  }
+
   // edges
   EDGES.forEach(([a,b])=>{ const p=P(a),q=P(b);
     cx.strokeStyle="rgba(80,110,170,.35)"; cx.lineWidth=1.5;
@@ -207,7 +243,8 @@ function draw(t){
     cx.beginPath(); cx.arc(p.x,p.y,R,0,6.28); cx.stroke(); cx.globalAlpha=1;
     cx.fillStyle=hexA(col,.18); cx.beginPath(); cx.arc(p.x,p.y,R,0,6.28); cx.fill();
     cx.fillStyle="#dbe5ff"; cx.font="11px monospace"; cx.textAlign="center";
-    cx.fillText(NODES[k].label, p.x, p.y+R+16);
+    let lbl = (k==="momentum" && STATE) ? STATE.strategy.toUpperCase() : NODES[k].label;
+    cx.fillText(lbl, p.x, p.y+R+16);
   }
   // orbiting neuron dots
   neurons.forEach(nu=>{ const p=P(nu.n), act=STATE?(STATE.agents[nu.n]||0):0;
@@ -248,6 +285,14 @@ function render(){
   document.getElementById('q-up').textContent=Math.round(STATE.fair*100)+'%';
   document.getElementById('q-dn').textContent=Math.round((1-STATE.fair)*100)+'%';
   document.getElementById('m-sig').textContent=STATE.last_signal.action+' · '+STATE.last_signal.reason;
+  // strategy dropdown (populate once)
+  const sel=document.getElementById('sel-strat');
+  if(sel.options.length===0 && STATE.strategies){
+    STATE.strategies.forEach(s=>{const o=document.createElement('option');
+      o.value=s;o.textContent=s.toUpperCase();sel.appendChild(o);});
+  }
+  if(document.activeElement!==sel) sel.value=STATE.strategy;
+  document.getElementById('strat-desc').textContent=STRAT_DESC[STATE.strategy]||'';
   // positions
   const tb=document.getElementById('postbody');
   if(STATE.account.positions.length){
@@ -261,6 +306,9 @@ function setPN(id,val,txt){const el=document.getElementById(id);el.textContent=t
 
 async function ctl(cmd){ await fetch('/api/control',{method:'POST',
   headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})}); poll(); }
+async function setStrat(){ const v=document.getElementById('sel-strat').value;
+  await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cmd:'set_params',strategy:v})}); poll(); }
 let tuneTimer=null;
 function tune(){
   const ev=+r('r-ev'),tp=+r('r-tp'),ct=+r('r-ct'),sp=+r('r-sp'),sd=+r('r-sd');
