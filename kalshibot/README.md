@@ -32,7 +32,19 @@ python -m kalshibot.backtest
 
 # 2) Live PAPER run — real Kalshi prices, simulated fills, zero real money:
 python -m kalshibot.run_paper --series KXBTC --minutes 30
+
+# 3) Web dashboard — neural-network style control deck at http://localhost:8765
+python -m kalshibot.webui
 ```
+
+### Web dashboard (`kalshibot.webui`)
+
+A localhost control deck (stdlib only, no pip installs) that renders the agents
+as a live "neural network" — Market Feed → Momentum → Risk/Fees → Account →
+Notifier — with pulses firing along the edges on every trade, a live BTC-vs-
+target chart, and sliders to start/pause/reset and tune the strategy in real
+time. Runs on a built-in **simulation feed** so it works offline. It is paper/sim
+only — no order ever leaves the machine.
 
 > If Kalshi returns HTTP 403, you're on a blocked network (some clouds/datacenters
 > are geofenced). Run from your own machine. Paper mode needs **no API key**.

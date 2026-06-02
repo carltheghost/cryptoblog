@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>kalshibot · neural control deck</title>
+<style>
+  :root{
+    --bg:#070a12; --panel:#0d121f; --panel2:#111829; --line:#1d2740;
+    --txt:#dbe5ff; --dim:#7c89ad; --green:#27e0a3; --red:#ff5d73;
+    --blue:#49b4ff; --gold:#ffc861; --violet:#b388ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden}
+  header{display:flex;align-items:center;gap:16px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:linear-gradient(90deg,#0a0f1c,#0d1322)}
+  header h1{font-size:16px;margin:0;letter-spacing:2px}
+  header h1 .v{color:var(--violet)}
+  .pill{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--line)}
+  .pill.on{color:var(--green);border-color:#1d5a45;background:#0c2a20}
+  .pill.off{color:var(--gold);border-color:#5a4a1d;background:#2a230c}
+  .pill.sim{color:var(--blue);border-color:#1d3f5a;background:#0c1f2a}
+  .stats{display:flex;gap:18px;margin-left:auto;flex-wrap:wrap}
+  .stat{text-align:right}
+  .stat .k{font-size:10px;color:var(--dim);letter-spacing:1px}
+  .stat .v{font-size:18px;font-weight:600}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  main{display:grid;grid-template-columns:1fr 340px;height:calc(100vh - 53px)}
+  .viz{position:relative}
+  canvas{display:block;width:100%;height:100%}
+  .side{border-left:1px solid var(--line);background:var(--panel);
+    overflow-y:auto;padding:14px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:12px;margin-bottom:12px}
+  .card h2{font-size:11px;margin:0 0 10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+  .btns{display:flex;gap:8px}
+  button{flex:1;cursor:pointer;border:1px solid var(--line);background:#16203a;color:var(--txt);
+    padding:9px;border-radius:8px;font-family:inherit;font-size:12px;transition:.15s}
+  button:hover{border-color:var(--blue);background:#1b2a4a}
+  button.go{border-color:#1d5a45;color:var(--green)}
+  button.stop{border-color:#5a2330;color:var(--red)}
+  .ctrl{margin:10px 0}
+  .ctrl label{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:4px}
+  .ctrl label b{color:var(--txt)}
+  input[type=range]{width:100%;accent-color:var(--violet)}
+  .market{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}
+  .market div span{color:var(--dim)}
+  .quote{display:flex;gap:8px;margin-top:8px}
+  .quote .q{flex:1;text-align:center;padding:8px;border-radius:8px;border:1px solid var(--line)}
+  .quote .up{color:var(--green);border-color:#1d5a45}
+  .quote .down{color:var(--red);border-color:#5a2330}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:400}
+  .log{font-size:11px;line-height:1.7;max-height:150px;overflow-y:auto;color:var(--dim)}
+  .log div:first-child{color:var(--txt)}
+  .warn{font-size:10px;color:var(--gold);margin-top:6px;line-height:1.5}
+  .sig{font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>KALSHI<span class="v">BOT</span> · NEURAL DECK</h1>
+  <span id="runpill" class="pill off">PAUSED</span>
+  <span class="pill sim">SIMULATION · NO REAL MONEY</span>
+  <div class="stats">
+    <div class="stat"><div class="k">EQUITY</div><div class="v" id="s-eq">$0</div></div>
+    <div class="stat"><div class="k">REALIZED P&L</div><div class="v" id="s-pnl">$0</div></div>
+    <div class="stat"><div class="k">FEES PAID</div><div class="v" id="s-fees">$0</div></div>
+    <div class="stat"><div class="k">TRADES</div><div class="v" id="s-tr">0</div></div>
+  </div>
+</header>
+<main>
+  <div class="viz">
+    <canvas id="net"></canvas>
+  </div>
+  <div class="side">
+    <div class="card">
+      <h2>Agent Control</h2>
+      <div class="btns">
+        <button class="go" onclick="ctl('start')">▶ Start</button>
+        <button class="stop" onclick="ctl('pause')">⏸ Pause</button>
+        <button onclick="ctl('reset')">⟳ Reset</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Strategy Tuning</h2>
+      <div class="ctrl">
+        <label>Entry velocity ($) <b id="l-ev">25</b></label>
+        <input type="range" id="r-ev" min="5" max="80" step="1" value="25" oninput="tune()">
+      </div>
+      <div class="ctrl">
+        <label>Take profit (¢) <b id="l-tp">6</b></label>
+        <input type="range" id="r-tp" min="1" max="25" step="1" value="6" oninput="tune()">
+      </div>
+      <div class="ctrl">
+        <label>Contracts / trade <b id="l-ct">10</b></label>
+        <input type="range" id="r-ct" min="1" max="50" step="1" value="10" oninput="tune()">
+      </div>
+      <div class="ctrl">
+        <label>Spread (¢) <b id="l-sp">2</b></label>
+        <input type="range" id="r-sp" min="1" max="8" step="1" value="2" oninput="tune()">
+      </div>
+      <div class="ctrl">
+        <label>Sim speed (ticks/s) <b id="l-sd">8</b></label>
+        <input type="range" id="r-sd" min="1" max="40" step="1" value="8" oninput="tune()">
+      </div>
+    </div>
+    <div class="card">
+      <h2>Live Market (BTC 15m)</h2>
+      <div class="market">
+        <div><span>now</span> $<b id="m-price">—</b></div>
+        <div><span>target</span> $<b id="m-target">—</b></div>
+        <div><span>velocity</span> <b id="m-vel">—</b></div>
+        <div><span>expires</span> <b id="m-left">—</b></div>
+      </div>
+      <div class="quote">
+        <div class="q up"><div id="q-up">—%</div><span style="font-size:10px;color:var(--dim)">UP / yes</span></div>
+        <div class="q down"><div id="q-dn">—%</div><span style="font-size:10px;color:var(--dim)">DOWN / no</span></div>
+      </div>
+      <div class="sig">signal: <b id="m-sig">—</b></div>
+    </div>
+    <div class="card">
+      <h2>Open Positions</h2>
+      <table><thead><tr><th>side</th><th>qty</th><th>avg</th></tr></thead>
+      <tbody id="postbody"><tr><td colspan="3" style="color:var(--dim)">none</td></tr></tbody></table>
+    </div>
+    <div class="card">
+      <h2>Agent Log</h2>
+      <div class="log" id="log"></div>
+      <div class="warn">⚠ Simulation only. The backtest shows this strategy loses to
+      fees over time — that's the point of watching it here before risking real funds.</div>
+    </div>
+  </div>
+</main>
+<script>
+const NODES = {
+  feed:    {x:.10, y:.50, label:"MARKET FEED",  color:"#49b4ff"},
+  momentum:{x:.33, y:.30, label:"MOMENTUM",     color:"#b388ff"},
+  risk:    {x:.33, y:.70, label:"RISK / FEES",  color:"#ffc861"},
+  account: {x:.62, y:.50, label:"PAPER ACCOUNT",color:"#27e0a3"},
+  notifier:{x:.86, y:.50, label:"NOTIFIER",     color:"#ff8fd0"},
+};
+const EDGES = [["feed","momentum"],["feed","risk"],["momentum","account"],
+               ["risk","account"],["account","notifier"]];
+let STATE = null, neurons = [];
+for(const k in NODES){ for(let i=0;i<7;i++) neurons.push({n:k,
+  a:Math.random()*6.28, r:18+Math.random()*16, s:.01+Math.random()*.03, ph:Math.random()}); }
+
+const cv = document.getElementById('net'), cx = cv.getContext('2d');
+function resize(){ cv.width=cv.clientWidth*devicePixelRatio; cv.height=cv.clientHeight*devicePixelRatio;
+  cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
+window.addEventListener('resize',resize); resize();
+
+function P(node){ return {x:NODES[node].x*cv.clientWidth, y:NODES[node].y*cv.clientHeight}; }
+
+function draw(t){
+  const W=cv.clientWidth,H=cv.clientHeight;
+  cx.clearRect(0,0,W,H);
+  // background grid
+  cx.strokeStyle="rgba(40,55,90,.25)"; cx.lineWidth=1;
+  for(let x=0;x<W;x+=40){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+  for(let y=0;y<H;y+=40){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+  // price chart along the bottom
+  if(STATE && STATE.history.length>1){
+    const h=STATE.history, n=h.length;
+    let lo=Math.min(...h), hi=Math.max(...h); if(hi-lo<1){hi+=1;lo-=1;}
+    const y0=H*0.62, yh=H*0.34;
+    const yOf=v=>y0+yh-( (v-lo)/(hi-lo) )*yh;
+    // target line
+    cx.strokeStyle="rgba(124,137,173,.6)"; cx.setLineDash([5,5]); cx.beginPath();
+    cx.moveTo(0,yOf(STATE.target)); cx.lineTo(W,yOf(STATE.target)); cx.stroke(); cx.setLineDash([]);
+    cx.fillStyle="rgba(124,137,173,.8)"; cx.font="10px monospace";
+    cx.fillText("target $"+STATE.target.toFixed(0), 8, yOf(STATE.target)-4);
+    // price path
+    const up = h[n-1] >= STATE.target;
+    cx.strokeStyle = up?"#27e0a3":"#ff5d73"; cx.lineWidth=2; cx.beginPath();
+    for(let i=0;i<n;i++){ const x=(i/(n-1))*W, y=yOf(h[i]); i?cx.lineTo(x,y):cx.moveTo(x,y);}
+    cx.stroke();
+    cx.fillStyle=cx.strokeStyle; cx.beginPath();
+    cx.arc(W-2,yOf(h[n-1]),4,0,6.28); cx.fill();
+  }
+
+  // edges
+  EDGES.forEach(([a,b])=>{ const p=P(a),q=P(b);
+    cx.strokeStyle="rgba(80,110,170,.35)"; cx.lineWidth=1.5;
+    cx.beginPath(); cx.moveTo(p.x,p.y); cx.lineTo(q.x,q.y); cx.stroke();
+  });
+  // animated pulses traveling along edges
+  if(STATE) STATE.pulses.forEach(pl=>{ if(!NODES[pl.src]||!NODES[pl.dst])return;
+    const p=P(pl.src),q=P(pl.dst), f=Math.min(1,pl.age/6);
+    const x=p.x+(q.x-p.x)*f, y=p.y+(q.y-p.y)*f;
+    const g=cx.createRadialGradient(x,y,0,x,y,10);
+    g.addColorStop(0,"#fff"); g.addColorStop(1,"rgba(179,136,255,0)");
+    cx.fillStyle=g; cx.beginPath(); cx.arc(x,y,10,0,6.28); cx.fill();
+  });
+
+  // nodes with orbiting neurons
+  for(const k in NODES){ const p=P(k), act=STATE?(STATE.agents[k]||0):0;
+    const col=NODES[k].color, R=34+act*14;
+    const g=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,R*1.8);
+    g.addColorStop(0, hexA(col,.55*act+.15)); g.addColorStop(1,"rgba(0,0,0,0)");
+    cx.fillStyle=g; cx.beginPath(); cx.arc(p.x,p.y,R*1.8,0,6.28); cx.fill();
+    cx.strokeStyle=col; cx.lineWidth=2; cx.globalAlpha=.5+act*.5;
+    cx.beginPath(); cx.arc(p.x,p.y,R,0,6.28); cx.stroke(); cx.globalAlpha=1;
+    cx.fillStyle=hexA(col,.18); cx.beginPath(); cx.arc(p.x,p.y,R,0,6.28); cx.fill();
+    cx.fillStyle="#dbe5ff"; cx.font="11px monospace"; cx.textAlign="center";
+    cx.fillText(NODES[k].label, p.x, p.y+R+16);
+  }
+  // orbiting neuron dots
+  neurons.forEach(nu=>{ const p=P(nu.n), act=STATE?(STATE.agents[nu.n]||0):0;
+    nu.a+=nu.s*(1+act*3);
+    const x=p.x+Math.cos(nu.a)*nu.r, y=p.y+Math.sin(nu.a)*nu.r;
+    const tw=.4+0.6*Math.abs(Math.sin(t*0.003+nu.ph*6));
+    cx.fillStyle=hexA(NODES[nu.n].color,.4+act*.6*tw);
+    cx.beginPath(); cx.arc(x,y,2+act*1.5,0,6.28); cx.fill();
+  });
+  cx.textAlign="left";
+  requestAnimationFrame(draw);
+}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+requestAnimationFrame(draw);
+
+// ---- data + controls ----
+async function poll(){
+  try{
+    const r = await fetch('/api/state'); STATE = await r.json(); render();
+  }catch(e){}
+}
+function render(){
+  const a=STATE.account;
+  document.getElementById('s-eq').textContent  = '$'+a.equity.toFixed(2);
+  setPN('s-pnl', a.realized_pnl, '$'+a.realized_pnl.toFixed(2));
+  document.getElementById('s-fees').textContent = '$'+a.fees.toFixed(2);
+  document.getElementById('s-tr').textContent   = a.trades;
+  const rp=document.getElementById('runpill');
+  rp.textContent = STATE.running?'RUNNING':'PAUSED';
+  rp.className='pill '+(STATE.running?'on':'off');
+  document.getElementById('m-price').textContent = STATE.price.toFixed(2);
+  document.getElementById('m-target').textContent= STATE.target.toFixed(2);
+  const vel=document.getElementById('m-vel');
+  vel.textContent=(STATE.velocity>0?'+':'')+STATE.velocity; vel.className=STATE.velocity>=0?'pos':'neg';
+  const sl=STATE.seconds_left; document.getElementById('m-left').textContent=
+    Math.floor(sl/60)+':'+String(sl%60).padStart(2,'0');
+  document.getElementById('q-up').textContent=Math.round(STATE.fair*100)+'%';
+  document.getElementById('q-dn').textContent=Math.round((1-STATE.fair)*100)+'%';
+  document.getElementById('m-sig').textContent=STATE.last_signal.action+' · '+STATE.last_signal.reason;
+  // positions
+  const tb=document.getElementById('postbody');
+  if(STATE.account.positions.length){
+    tb.innerHTML=STATE.account.positions.map(p=>
+      `<tr><td>${p.side}</td><td>${p.contracts}</td><td>${(p.avg_price*100).toFixed(0)}¢</td></tr>`).join('');
+  } else tb.innerHTML='<tr><td colspan="3" style="color:var(--dim)">none</td></tr>';
+  document.getElementById('log').innerHTML=STATE.events.map(e=>`<div>${e}</div>`).join('');
+}
+function setPN(id,val,txt){const el=document.getElementById(id);el.textContent=txt;
+  el.className='v '+(val>0?'pos':val<0?'neg':'');}
+
+async function ctl(cmd){ await fetch('/api/control',{method:'POST',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})}); poll(); }
+let tuneTimer=null;
+function tune(){
+  const ev=+r('r-ev'),tp=+r('r-tp'),ct=+r('r-ct'),sp=+r('r-sp'),sd=+r('r-sd');
+  document.getElementById('l-ev').textContent=ev;
+  document.getElementById('l-tp').textContent=tp;
+  document.getElementById('l-ct').textContent=ct;
+  document.getElementById('l-sp').textContent=sp;
+  document.getElementById('l-sd').textContent=sd;
+  clearTimeout(tuneTimer); tuneTimer=setTimeout(()=>{
+    fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({cmd:'set_params',entry_velocity:ev,take_profit:tp/100,
+        contracts:ct,spread:sp/100,speed:sd})});
+  },120);
+}
+function r(id){return document.getElementById(id).value;}
+poll(); setInterval(poll, 350);
+</script>
+</body>
+</html>
