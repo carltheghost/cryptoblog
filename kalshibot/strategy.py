@@ -160,6 +160,23 @@ def _ols_slope(ys) -> float:
     return num / den
 
 
+def _ols_slope_t(ys) -> tuple[float, float]:
+    """Return (slope, t-stat). The t-stat says whether the drift is real or noise."""
+    n = len(ys)
+    if n < 4:
+        return 0.0, 0.0
+    xm = (n - 1) / 2.0
+    ym = sum(ys) / n
+    sxx = sum((i - xm) ** 2 for i in range(n)) or 1.0
+    slope = sum((i - xm) * (ys[i] - ym) for i in range(n)) / sxx
+    intercept = ym - slope * xm
+    ss_res = sum((ys[i] - (intercept + slope * i)) ** 2 for i in range(n))
+    var = ss_res / (n - 2)
+    se = math.sqrt(var / sxx) if var > 0 and sxx > 0 else 0.0
+    t = slope / se if se > 0 else 0.0
+    return slope, t
+
+
 def _autocorr1(r) -> float:
     """Lag-1 autocorrelation of returns: >0 trending, <0 mean-reverting."""
     n = len(r)
@@ -195,59 +212,49 @@ class ChronosBridgeStrategy(Strategy):
     kelly_fraction: float = 0.4  # fraction of full Kelly to actually size at
     edge_buffer: float = 0.025   # required EV cushion above modeled cost
     max_spread: float = 0.03
-    exit_flip: float = 0.06      # exit only on a decisive adverse flip
-    cooldown: int = 120          # min seconds between entries (anti-churn)
+    t_gate: float = 2.0          # only trust drift if its t-stat clears this
 
-    def _estimate(self, ctx: StrategyContext) -> float:
-        """Return the fused fair 'yes' probability p_hat (0..1)."""
+    def _estimate(self, ctx: StrategyContext) -> tuple[float, float]:
+        """Return (fused fair 'yes' probability p_hat, drift t-stat)."""
         prices = ctx.prices
         # Without an underlying path (e.g. live paper with only quotes), fall back
         # to the market's own fair plus a microstructure nudge. No path = no edge.
         if len(prices) < 6:
-            return min(0.99, max(0.01, ctx.fair + self.micro_lambda * ctx.imbalance * 0.25))
+            p = min(0.99, max(0.01, ctx.fair + self.micro_lambda * ctx.imbalance * 0.25))
+            return p, 0.0
 
         tau = max(1, ctx.seconds_left)
-        S = prices[-1]
-        d = S - ctx.target
+        d = prices[-1] - ctx.target
         rets = [prices[i + 1] - prices[i] for i in range(len(prices) - 1)]
         sigma = statistics.pstdev(rets) or 1.0
 
-        # backward leg: drift + regime
-        mu = _ols_slope(prices)
+        # backward leg: drift (with significance) + regime
+        mu, tstat = _ols_slope_t(prices)
         rho = _autocorr1(rets)
         trend = 1.0 if rho >= 0 else -1.0           # persist vs revert
-        eff_mu = self.drift_kappa * mu * trend
+        # only let the drift bend the forecast if it is statistically real
+        eff_mu = self.drift_kappa * mu * trend if abs(tstat) >= self.t_gate else 0.0
 
         # forward leg: regime-adjusted Brownian-bridge settlement probability
         p_dyn = _phi((d + eff_mu * tau) / (sigma * math.sqrt(tau)))
-        # microstructure nudge (matters more as the book tightens)
         p_hat = p_dyn + self.micro_lambda * ctx.imbalance * 0.25
-        return min(0.99, max(0.01, p_hat))
+        return min(0.99, max(0.01, p_hat)), tstat
 
     def decide(self, ctx: StrategyContext) -> Signal:
-        p_hat = self._estimate(ctx)
-        edge = p_hat - ctx.fair   # signed: >0 favors yes, <0 favors no
+        p_hat, tstat = self._estimate(ctx)
 
+        # apply our own proven lesson: turnover is the enemy. One entry per market,
+        # then HOLD to settlement -- no take-profit re-entry loop, no exit fees.
         if ctx.have_position:
-            if ctx.unrealized >= self.take_profit:
-                self._cd = self.cooldown
-                return Signal("take_profit", f"tp {ctx.unrealized:+.2f}")
-            held_yes = ctx.side_held == "yes"
-            against = (held_yes and edge < -self.exit_flip) or \
-                      (not held_yes and edge > self.exit_flip)
-            if against:
-                self._cd = self.cooldown
-                return Signal("take_profit", f"bridge flipped (edge {edge:+.2f})")
-            return Signal("hold", "bridge intact")
+            return Signal("hold", "holding the bridge to settlement")
 
-        cd = getattr(self, "_cd", 0)
-        if cd > 0:
-            self._cd = cd - 1
-            return Signal("hold", "cooldown")
         if ctx.seconds_left < max(self.min_seconds_left, 120):
             return Signal("hold", "too late for the bridge")
         if ctx.spread > self.max_spread:
             return Signal("hold", "book too wide to pay")
+        # signal gate: act only on a statistically real drift, or a decisive book
+        if abs(tstat) < self.t_gate and abs(ctx.imbalance) < 0.7:
+            return Signal("hold", f"signal weak (t={tstat:.1f})")
 
         # cost gate: entry fee (~0.07*p*(1-p)) + half-spread crossing
         fee = 0.07 * ctx.fair * (1 - ctx.fair)
@@ -259,8 +266,7 @@ class ChronosBridgeStrategy(Strategy):
 
         # fractional Kelly sizing on the implied edge, bounded 0.2..1.0
         size = max(0.2, min(1.0, self.kelly_fraction * ev / 0.05))
-        self._cd = self.cooldown
-        return Signal(action, f"EV {ev:+.3f}, p_hat {p_hat:.2f} vs {ctx.fair:.2f}", size)
+        return Signal(action, f"EV {ev:+.3f}, t={tstat:.1f}, p_hat {p_hat:.2f}", size)
 
 
 STRATEGIES = {

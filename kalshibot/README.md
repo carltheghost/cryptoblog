@@ -26,15 +26,17 @@ The offline backtest charges those costs honestly and ranks four strategies
 |----------|------|-----|-----------|------|
 | `spread` | strong signal + tight book, hold to settle | +$89 | 2.0 | $68 |
 | `imbalance` | trade order-book imbalance (here: pure noise) | −$52 | 2.0 | $70 |
-| `chronos` | bidirectional Brownian-bridge + regime + Kelly | −$785 | 8.9 | $341 |
+| `chronos` | bidirectional bridge + regime + t-stat gate + Kelly | −$247 | 2.0 | $66 |
 | `momentum` | ride + take profit, churn | −$870 | 9.2 | $401 |
 | `fade` | mean-reversion, fade overextended moves | −$1059 | 7.8 | $479 |
 
-**The most complex strategy (`chronos`) loses badly** — far worse than the
-simplest disciplined one (`spread`). That is the headline lesson, not an accident:
-elaborate bidirectional re-evaluation reacts to noise, re-trades, and pays the fee
-toll over and over. In trading, complexity is usually how you lose. Two robust
-takeaways:
+**Even after a serious tune-up, the most complex strategy (`chronos`) still loses
+and still can't beat the simplest disciplined one (`spread`).** Its journey is the
+real lesson: adding a statistical-significance gate on the drift and forcing it to
+hold to settlement (one entry, no churn) cut its loss by ~69% (−$785 → −$247) and
+its fees by ~80% ($341 → $66) — *every gain came from doing less, not from more
+cleverness.* In trading, complexity is usually how you lose; discipline is the
+edge. Two robust takeaways:
 
 1. **Turnover is the enemy.** The churners (`momentum`, `fade`) pay 6–7× the fees
    and lose an order of magnitude more. Trading less is the single biggest lever.
