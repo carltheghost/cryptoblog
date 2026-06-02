@@ -1,0 +1,4 @@
+requests>=2.31
+rich>=13.0
+# cryptography is only needed if you enable authenticated/live trading (RSA request signing)
+cryptography>=42.0
