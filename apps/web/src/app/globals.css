@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #05070a;
+  --bg-panel: rgba(10, 14, 24, 0.75);
+  --border-glow: rgba(0, 242, 255, 0.25);
+  --accent-cyan: #00f2ff;
+  --accent-violet: #8a2be2;
+  --accent-gold: #ffd700;
+  --accent-green: #00ff88;
+  --accent-red: #ff4466;
+  --text-primary: #e8edf5;
+  --text-muted: #7a8ba3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+}
+
+.glass-panel-violet {
+  border-color: rgba(138, 43, 226, 0.3);
+}
+
+.glass-panel-gold {
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.neon-text-cyan {
+  color: var(--accent-cyan);
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+}
+
+.neon-text-violet {
+  color: var(--accent-violet);
+  text-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+}
+
+.tesseract-glow {
+  box-shadow: 0 0 40px rgba(138, 43, 226, 0.4), 0 0 80px rgba(0, 242, 255, 0.2);
+}
+
+@keyframes tesseract-spin {
+  0% { transform: rotateX(0deg) rotateY(0deg); }
+  100% { transform: rotateX(360deg) rotateY(360deg); }
+}
+
+.tesseract-animate {
+  animation: tesseract-spin 12s linear infinite;
+  transform-style: preserve-3d;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 255, 0.3);
+  border-radius: 2px;
+}
