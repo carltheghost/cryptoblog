@@ -1,15 +1,46 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { LoadingSpinner } from "@/components/ui/loading";
+import { api, queryKeys } from "@/lib/api";
+import { toastAction } from "@/hooks/use-toast-action";
 
 export default function RewardsPage() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: queryKeys.rewards, queryFn: () => api.rewards.get() });
+
+  const claim = async () => {
+    await toastAction(() => api.rewards.claim(), {
+      loading: "Claiming rewards...",
+      success: (r) => `Claimed ${(r as { claimed: number }).claimed} TRD!`,
+    });
+    qc.invalidateQueries({ queryKey: queryKeys.rewards });
+    qc.invalidateQueries({ queryKey: ["defi", "wallet"] });
+  };
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const pools = data?.pools || [];
+
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <h1 className="text-xl font-bold neon-text-cyan">Rewards</h1>
+    <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold neon-text-cyan">Rewards</h1>
+        <button onClick={claim} className="btn-primary btn-cefi">Claim {(data?.total_claimable ?? 0).toFixed(2)} TRD</button>
+      </div>
       <div className="grid grid-cols-3 gap-4">
-        <GlassPanel title="Activity Pool"><p className="text-2xl font-bold text-[var(--accent-cyan)]">2,450 TRD</p><p className="text-xs text-[var(--text-muted)]">Earned from engagement</p></GlassPanel>
-        <GlassPanel title="Trade Pool" variant="violet"><p className="text-2xl font-bold text-[var(--accent-violet)]">890 TRD</p><p className="text-xs text-[var(--text-muted)]">Trading fee rewards</p></GlassPanel>
-        <GlassPanel title="Legacy Pool" variant="gold"><p className="text-2xl font-bold text-[var(--accent-gold)]">142 TRD</p><p className="text-xs text-[var(--text-muted)]">Staking rewards</p></GlassPanel>
+        {pools.map((p, i) => (
+          <GlassPanel key={p.name} variant={i === 2 ? "gold" : i === 1 ? "violet" : "default"}>
+            <h3 className="text-sm font-semibold text-[var(--text-muted)]">{p.name}</h3>
+            <p className="mt-2 text-2xl font-bold text-[var(--accent-cyan)]">{p.amount.toLocaleString()} {p.token}</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{p.description}</p>
+          </GlassPanel>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <GlassPanel title="CeFi Earn APY"><p className="text-3xl font-bold text-[var(--accent-gold)]">{data?.cefi_earn_apy ?? 0}%</p></GlassPanel>
+        <GlassPanel title="DeFi Staking APY" variant="violet"><p className="text-3xl font-bold text-[var(--accent-violet)]">{data?.defi_staking_apy ?? 0}%</p></GlassPanel>
       </div>
     </div>
   );

@@ -66,3 +66,43 @@ class AgentCreate(BaseModel):
     agent_type: str
     description: str
     budget: float = 100.0
+
+
+class CrossChainBridgeRequest(BaseModel):
+    from_chain: str = "Ethereum"
+    to_chain: str = "TribeChain"
+    token: str = "USDC"
+    amount: float
+
+
+class PreferenceUpdate(BaseModel):
+    kyc_visible: Optional[bool] = None
+    anonymous_mode: Optional[bool] = None
+    two_factor: Optional[bool] = None
+    tor_routing: Optional[bool] = None
+    zk_disclosure: Optional[bool] = None
+
+
+class EarnStakeRequest(BaseModel):
+    amount: float
+
+
+class MultisigSetup(BaseModel):
+    threshold: int = 2
+    device_keys: list[str] = Field(default_factory=list)
+
+
+class RecoverySetup(BaseModel):
+    guardians: list[str] = Field(default_factory=list)
+
+
+class AgentPluginsUpdate(BaseModel):
+    pricebot: Optional[bool] = None
+    rebalancer: Optional[bool] = None
+
+
+class BatchTransaction(BaseModel):
+    action: str
+    amount: float
+    token: str = "MGANGA"
+    target: str = "hybrid"

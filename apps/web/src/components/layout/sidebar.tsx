@@ -14,6 +14,8 @@ import {
   Headphones,
   Settings,
   Hexagon,
+  Gem,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +24,12 @@ const navItems = [
   { href: "/trade", icon: TrendingUp, label: "Trade" },
   { href: "/wallet", icon: Wallet, label: "Quark Wallet" },
   { href: "/market", icon: ArrowLeftRight, label: "TessMarket" },
-  { href: "/relics", icon: Hexagon, label: "Relics" },
+  { href: "/relics", icon: Gem, label: "Relics" },
   { href: "/assets", icon: ListOrdered, label: "Assets" },
   { href: "/orders", icon: History, label: "Orders" },
   { href: "/rewards", icon: Gift, label: "Rewards" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
-  { href: "/agents", icon: Hexagon, label: "TessAgents" },
+  { href: "/agents", icon: Bot, label: "TessAgents" },
   { href: "/support", icon: Headphones, label: "Support" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ];

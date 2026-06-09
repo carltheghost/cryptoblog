@@ -1,34 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { api } from "@/lib/api";
+import { LoadingSpinner } from "@/components/ui/loading";
+import { api, queryKeys } from "@/lib/api";
 
 export default function AnalyticsPage() {
-  const [graph, setGraph] = useState<{ nodes: { id: string; type: string }[]; edges: { source: string; target: string; type: string }[] }>({ nodes: [], edges: [] });
-
-  useEffect(() => { api.storage.tesslink().then(setGraph); }, []);
+  const { data: graph, isLoading: gLoading } = useQuery({ queryKey: queryKeys.tesslink, queryFn: () => api.storage.tesslink() });
+  const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: () => api.health() });
+  const { data: childChain } = useQuery({ queryKey: ["defi", "child-chain"], queryFn: () => api.defi.childChain() });
+  const { data: cefiStats } = useQuery({ queryKey: queryKeys.cefiStats, queryFn: () => api.cefi.stats() });
+  const { data: defiStats } = useQuery({ queryKey: queryKeys.defiStats, queryFn: () => api.defi.stats() });
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
       <h1 className="text-xl font-bold neon-text-cyan">Analytics & Tessalink</h1>
+
       <div className="grid grid-cols-2 gap-4">
         <GlassPanel title="Tessalink Hypergraph">
-          <p className="text-xs text-[var(--text-muted)]">{graph.nodes.length} nodes · {graph.edges.length} edges</p>
-          <div className="mt-2 max-h-48 overflow-y-auto space-y-1 text-[10px]">
-            {graph.edges.map((e, i) => (
-              <div key={i} className="text-[var(--text-muted)]">
-                <span className="text-[var(--accent-cyan)]">{e.source}</span> → <span className="text-[var(--accent-violet)]">{e.target}</span> ({e.type})
+          {gLoading ? <LoadingSpinner className="py-4" /> : (
+            <>
+              <p className="text-xs text-[var(--text-muted)]">
+                {graph?.nodes?.length || 0} nodes · {graph?.edges?.length || 0} edges
+              </p>
+              <div className="mt-3 max-h-64 overflow-y-auto scrollbar-thin space-y-2">
+                {(graph?.edges || []).map((e, i) => (
+                  <div key={i} className="rounded-lg bg-[rgba(0,0,0,0.2)] p-2 text-[10px]">
+                    <span className="text-[var(--accent-cyan)]">{e.source}</span>
+                    <span className="mx-1 text-[var(--text-muted)]">—{e.type}→</span>
+                    <span className="text-[var(--accent-violet)]">{e.target}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </GlassPanel>
+
         <GlassPanel title="Network Health" variant="green">
-          <div className="space-y-2 text-xs">
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between"><span>API Status</span><span className="text-[var(--accent-green)]">{health?.status || "checking..."}</span></div>
             <div className="flex justify-between"><span>MGANGA Chain (PoA)</span><span className="text-[var(--accent-green)]">Active</span></div>
             <div className="flex justify-between"><span>MWANJESA Chain (PoS)</span><span className="text-[var(--accent-green)]">Active</span></div>
-            <div className="flex justify-between"><span>HYB Bridge</span><span className="text-[var(--accent-green)]">Operational</span></div>
-            <div className="flex justify-between"><span>DAG Tessalink</span><span className="text-[var(--accent-cyan)]">{"< 1s finality"}</span></div>
+            <div className="flex justify-between"><span>{childChain?.name}</span><span className="text-[var(--accent-violet)]">{childChain?.validators} validators</span></div>
+            <div className="flex justify-between"><span>CeFi 24H Volume</span><span>${((cefiStats?.volume_24h ?? 0) / 1e9).toFixed(2)}B</span></div>
+            <div className="flex justify-between"><span>DeFi TVL</span><span>${((defiStats?.tvl ?? 0) / 1e9).toFixed(2)}B</span></div>
+            <div className="flex justify-between"><span>DAG Finality</span><span className="text-[var(--accent-cyan)]">&lt; 1 sec</span></div>
           </div>
         </GlassPanel>
       </div>

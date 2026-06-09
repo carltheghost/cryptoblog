@@ -14,6 +14,7 @@ from core.models import (
     TessAgent,
     TessLinkEdge,
     User,
+    UserPreference,
 )
 
 
@@ -36,6 +37,8 @@ async def seed_database(session: AsyncSession) -> None:
             user_id=user.id,
             mganga_balance=24350.68,
             usd_balance=24350.68,
+            staked_mganga=3652.60,
+            earn_rewards=48.70,
             kyc_status="verified",
             aml_compliant=True,
             fraud_score=92,
@@ -48,6 +51,16 @@ async def seed_database(session: AsyncSession) -> None:
             hyb_balance=1250.0,
             staked_trd=5000.0,
             staking_rewards=142.35,
+            risk_score=88,
+            token_balances={"ETH": 5.42, "USDC": 4200.0, "TRD": 12500.0},
+        )
+    )
+    session.add(
+        UserPreference(
+            user_id=user.id,
+            agent_plugins={"pricebot": True, "rebalancer": False},
+            recovery_guardians=[],
+            batch_queue=[],
         )
     )
 

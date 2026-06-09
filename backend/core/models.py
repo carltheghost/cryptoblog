@@ -28,6 +28,8 @@ class CefiAccount(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
     mganga_balance: Mapped[float] = mapped_column(Float, default=0.0)
     usd_balance: Mapped[float] = mapped_column(Float, default=0.0)
+    staked_mganga: Mapped[float] = mapped_column(Float, default=0.0)
+    earn_rewards: Mapped[float] = mapped_column(Float, default=0.0)
     kyc_status: Mapped[str] = mapped_column(String(32), default="pending")
     aml_compliant: Mapped[bool] = mapped_column(Boolean, default=False)
     fraud_score: Mapped[int] = mapped_column(Integer, default=85)
@@ -44,6 +46,8 @@ class DefiWallet(Base):
     hyb_balance: Mapped[float] = mapped_column(Float, default=0.0)
     staked_trd: Mapped[float] = mapped_column(Float, default=0.0)
     staking_rewards: Mapped[float] = mapped_column(Float, default=0.0)
+    token_balances: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
+    risk_score: Mapped[int] = mapped_column(Integer, default=88)
 
     user: Mapped[User] = relationship(back_populates="defi_wallet")
 
@@ -171,6 +175,61 @@ class TessLinkEdge(Base):
     target_id: Mapped[str] = mapped_column(String(64))
     edge_type: Mapped[str] = mapped_column(String(32))
     attributes: Mapped[Optional[dict]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DefiTransaction(Base):
+    __tablename__ = "defi_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    tx_type: Mapped[str] = mapped_column(String(32))
+    from_token: Mapped[Optional[str]] = mapped_column(String(16))
+    to_token: Mapped[Optional[str]] = mapped_column(String(16))
+    amount: Mapped[float] = mapped_column(Float)
+    output_amount: Mapped[Optional[float]] = mapped_column(Float)
+    tx_hash: Mapped[Optional[str]] = mapped_column(String(66))
+    status: Mapped[str] = mapped_column(String(16), default="confirmed")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    subject: Mapped[str] = mapped_column(String(256))
+    message: Mapped[str] = mapped_column(Text)
+    priority: Mapped[str] = mapped_column(String(16), default="normal")
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    kyc_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    anonymous_mode: Mapped[bool] = mapped_column(Boolean, default=False)
+    two_factor: Mapped[bool] = mapped_column(Boolean, default=True)
+    tor_routing: Mapped[bool] = mapped_column(Boolean, default=False)
+    zk_disclosure: Mapped[bool] = mapped_column(Boolean, default=False)
+    multisig_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    multisig_threshold: Mapped[int] = mapped_column(Integer, default=2)
+    recovery_guardians: Mapped[Optional[list]] = mapped_column(JSON, default=list)
+    agent_plugins: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
+    batch_queue: Mapped[Optional[list]] = mapped_column(JSON, default=list)
+
+
+class BarterOffer(Base):
+    __tablename__ = "barter_offers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    offer_assets: Mapped[dict] = mapped_column(JSON)
+    request_assets: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

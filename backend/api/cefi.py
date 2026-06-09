@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.schemas import FiatDepositCreate, OrderCreate
+from api.schemas import EarnStakeRequest, FiatDepositCreate, OrderCreate
 from core.database import get_db
 from core.models import CefiAccount, CustodyAllocation, FiatDeposit, Order, User
 
@@ -205,3 +205,54 @@ async def cefi_stats():
         "users_online": 23845,
         "uptime": 99.99,
     }
+
+
+@router.get("/earn")
+async def cefi_earn(session: AsyncSession = Depends(get_db)):
+    user = await get_demo_user(session)
+    account = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    return {
+        "staked_mganga": round(account.staked_mganga, 2),
+        "available_mganga": round(account.mganga_balance, 2),
+        "apy": 6.5,
+        "rewards_accrued": round(account.earn_rewards, 2),
+        "products": [
+            {"name": "MGANGA Savings", "apy": 6.5, "min": 100},
+            {"name": "CeFi Liquidity Pool", "apy": 8.7, "min": 500},
+            {"name": "Institutional Vault", "apy": 4.2, "min": 10000},
+        ],
+    }
+
+
+@router.post("/earn/stake")
+async def cefi_stake(body: EarnStakeRequest, session: AsyncSession = Depends(get_db)):
+    user = await get_demo_user(session)
+    account = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    if body.amount > account.mganga_balance:
+        raise HTTPException(400, "Insufficient balance")
+    if body.amount <= 0:
+        raise HTTPException(400, "Invalid amount")
+    account.mganga_balance -= body.amount
+    account.staked_mganga += body.amount
+    await session.commit()
+    return {
+        "staked": body.amount,
+        "total_staked": account.staked_mganga,
+        "available": account.mganga_balance,
+        "apy": 6.5,
+        "message": "MGANGA staked in CeFi earn product",
+    }
+
+
+@router.post("/earn/claim")
+async def cefi_claim_earn(session: AsyncSession = Depends(get_db)):
+    user = await get_demo_user(session)
+    account = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    claimed = account.earn_rewards
+    if claimed <= 0:
+        account.earn_rewards = round(account.staked_mganga * 0.002, 2)
+        claimed = account.earn_rewards
+    account.mganga_balance += claimed
+    account.earn_rewards = 0.0
+    await session.commit()
+    return {"claimed": claimed, "new_balance": account.mganga_balance}

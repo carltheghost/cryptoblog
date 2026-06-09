@@ -79,3 +79,63 @@ body {
   background: rgba(0, 242, 255, 0.3);
   border-radius: 2px;
 }
+
+.mode-cefi {
+  --mode-accent: var(--accent-cyan);
+  --mode-border: rgba(0, 242, 255, 0.25);
+  --mode-glow: rgba(0, 242, 255, 0.15);
+}
+
+.mode-defi {
+  --mode-accent: var(--accent-violet);
+  --mode-border: rgba(138, 43, 226, 0.3);
+  --mode-glow: rgba(138, 43, 226, 0.15);
+}
+
+.input-field {
+  width: 100%;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: white;
+  border: 1px solid var(--mode-border, var(--border-glow));
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--mode-accent, var(--accent-cyan));
+}
+
+.btn-primary {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cefi {
+  background: var(--accent-cyan);
+  color: black;
+}
+
+.btn-defi {
+  background: var(--accent-violet);
+  color: white;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

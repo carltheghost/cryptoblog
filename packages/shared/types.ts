@@ -56,3 +56,25 @@ export interface TessAgent {
   budget: number;
   stake: number;
 }
+
+export interface AgentDetail extends TessAgent {
+  permissions?: Record<string, boolean>;
+  performance?: { tasks_completed: number; accuracy: number; earnings: number };
+}
+
+export interface WalletConfig {
+  tess_id: string;
+  multisig: { enabled: boolean; threshold: number; keys_required: number };
+  recovery: { configured: boolean; guardians: string[] };
+  agent_plugins: { pricebot: boolean; rebalancer: boolean };
+  batch_queue: { id: number; action: string; amount: number; token: string; target: string; status: string }[];
+  privacy: { pseudonym_mode: boolean; zk_disclosure: boolean; tor_routing: boolean };
+}
+
+export interface CefiEarnData {
+  staked_mganga: number;
+  available_mganga: number;
+  apy: number;
+  rewards_accrued: number;
+  products: { name: string; apy: number; min: number }[];
+}

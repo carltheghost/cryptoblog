@@ -3,10 +3,10 @@
 import { SpotTrading } from "@/components/cefi/spot-trading";
 import { OrderBook } from "@/components/cefi/order-book";
 import { FiatDeposit, ComplianceStatus } from "@/components/cefi/fiat-compliance";
-import { FraudScore, CustodyVault, CefiStats } from "@/components/cefi/fraud-custody";
+import { FraudScore, CustodyVault, CefiStats, CefiEarn } from "@/components/cefi/fraud-custody";
 import { NonCustodialWallet, DexSwap } from "@/components/defi/wallet-swap";
 import { StakingPanel, DaoVote } from "@/components/defi/staking-dao";
-import { ChildChain, DefiPools, LivingRelicsGrid, CrossChainBridge } from "@/components/defi/pools-relics-bridge";
+import { ChildChain, DefiPools, LivingRelicsGrid, CrossChainBridge, DefiRiskScore, DefiStats } from "@/components/defi/pools-relics-bridge";
 import { TesseractCore } from "@/components/hybrid/tesseract-core";
 import { usePlatformStore } from "@/store/platform";
 import { cn } from "@/lib/utils";
@@ -16,8 +16,10 @@ export default function DashboardPage() {
 
   return (
     <div className="grid grid-cols-12 gap-3">
-      {/* CeFi Column */}
-      <div className={cn("col-span-12 space-y-3 lg:col-span-4", mode === "decentralized" && "opacity-60")}>
+      <div className={cn(
+        "col-span-12 space-y-3 transition-all duration-500 lg:col-span-4",
+        mode === "decentralized" ? "opacity-50 lg:opacity-40" : "opacity-100"
+      )}>
         <div className="grid grid-cols-2 gap-3">
           <SpotTrading />
           <OrderBook />
@@ -30,16 +32,20 @@ export default function DashboardPage() {
           <FraudScore />
           <CustodyVault />
         </div>
-        <CefiStats />
+        <div className="grid grid-cols-2 gap-3">
+          <CefiEarn />
+          <CefiStats />
+        </div>
       </div>
 
-      {/* Hybrid Core */}
       <div className="col-span-12 lg:col-span-3">
         <TesseractCore />
       </div>
 
-      {/* DeFi Column */}
-      <div className={cn("col-span-12 space-y-3 lg:col-span-5", mode === "centralized" && "opacity-60")}>
+      <div className={cn(
+        "col-span-12 space-y-3 transition-all duration-500 lg:col-span-5",
+        mode === "centralized" ? "opacity-50 lg:opacity-40" : "opacity-100"
+      )}>
         <div className="grid grid-cols-2 gap-3">
           <NonCustodialWallet />
           <DexSwap />
@@ -52,6 +58,10 @@ export default function DashboardPage() {
           <ChildChain />
           <DefiPools />
           <CrossChainBridge />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <DefiRiskScore />
+          <DefiStats />
         </div>
         <LivingRelicsGrid />
       </div>

@@ -1,7 +1,8 @@
 import hashlib
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +10,11 @@ from core.database import get_db
 from core.models import LivingRelic, TessLinkEdge
 
 router = APIRouter(prefix="/api/storage", tags=["storage"])
+
+
+class VaultStore(BaseModel):
+    field: str
+    value: str
 
 
 @router.post("/upload")
@@ -25,7 +31,8 @@ async def upload_media(file: UploadFile = File(...)):
 
 
 @router.post("/vault/store")
-async def store_in_vault(field: str, value: str):
+async def store_in_vault(body: VaultStore):
+    field, value = body.field, body.value
     vault_hash = hashlib.sha256(f"{field}:{value}".encode()).hexdigest()
     return {
         "field": field,
@@ -40,7 +47,7 @@ async def create_shadow_proof(token_id: str, session: AsyncSession = Depends(get
     result = await session.execute(select(LivingRelic).where(LivingRelic.token_id == token_id))
     relic = result.scalar_one_or_none()
     if not relic:
-        return {"error": "Relic not found"}
+        raise HTTPException(404, "Relic not found")
     shadow_hash = hashlib.sha256(f"shadow:{token_id}:{datetime.utcnow().isoformat()}".encode()).hexdigest()
     relic.shadow_hash = shadow_hash
     relic.status = "shadow_proof"
