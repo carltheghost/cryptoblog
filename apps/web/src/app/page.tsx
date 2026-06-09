@@ -8,6 +8,7 @@ import { NonCustodialWallet, DexSwap } from "@/components/defi/wallet-swap";
 import { StakingPanel, DaoVote } from "@/components/defi/staking-dao";
 import { ChildChain, DefiPools, LivingRelicsGrid, CrossChainBridge, DefiRiskScore, DefiStats } from "@/components/defi/pools-relics-bridge";
 import { TesseractCore } from "@/components/hybrid/tesseract-core";
+import { CasinoWidget } from "@/components/casino/casino-widget";
 import { usePlatformStore } from "@/store/platform";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +39,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="col-span-12 lg:col-span-3">
+      <div className="col-span-12 space-y-3 lg:col-span-3">
         <TesseractCore />
+        <CasinoWidget />
       </div>
 
       <div className={cn(

@@ -233,6 +233,40 @@ class BarterOffer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class CasinoWallet(Base):
+    __tablename__ = "casino_wallets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    mganga_chips: Mapped[float] = mapped_column(Float, default=5000.0)
+    mwanjesa_chips: Mapped[float] = mapped_column(Float, default=3000.0)
+    total_wagered: Mapped[float] = mapped_column(Float, default=0.0)
+    total_won: Mapped[float] = mapped_column(Float, default=0.0)
+    games_played: Mapped[int] = mapped_column(Integer, default=0)
+    win_streak: Mapped[int] = mapped_column(Integer, default=0)
+    server_seed: Mapped[str] = mapped_column(String(128))
+    server_seed_hash: Mapped[str] = mapped_column(String(128))
+    client_seed: Mapped[str] = mapped_column(String(64), default="tesschain-demo")
+    nonce: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CasinoBet(Base):
+    __tablename__ = "casino_bets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    game: Mapped[str] = mapped_column(String(32))
+    bet_amount: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(16), default="MGANGA")
+    payout: Mapped[float] = mapped_column(Float, default=0.0)
+    multiplier: Mapped[float] = mapped_column(Float, default=0.0)
+    won: Mapped[bool] = mapped_column(Boolean, default=False)
+    choice: Mapped[Optional[str]] = mapped_column(String(64))
+    outcome_json: Mapped[dict] = mapped_column(JSON)
+    proof_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class BridgeTransaction(Base):
     __tablename__ = "bridge_transactions"
 

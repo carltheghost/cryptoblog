@@ -7,6 +7,9 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { NonCustodialWallet, DexSwap } from "@/components/defi/wallet-swap";
 import { LivingRelicsGrid } from "@/components/defi/pools-relics-bridge";
 import { TesseractCore } from "@/components/hybrid/tesseract-core";
+import { QuarkWalletPro } from "@/components/wallet/quark-wallet-pro";
+import Link from "next/link";
+import { Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toastAction } from "@/hooks/use-toast-action";
 import { api, queryKeys } from "@/lib/api";
@@ -74,18 +77,24 @@ export default function WalletPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold neon-text-cyan">Quark Wallet</h1>
         <div className="flex gap-2">
+          <Link href="/casino" className="btn-primary flex items-center gap-1 bg-[rgba(255,215,0,0.2)] text-[var(--accent-gold)]">
+            <Dices className="h-4 w-4" /> Casino
+          </Link>
           <button onClick={() => setMode("simple")} className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-all", mode === "simple" ? "bg-[var(--accent-cyan)] text-black" : "text-[var(--text-muted)]")}>Simple Mode</button>
           <button onClick={() => setMode("deep")} className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-all", mode === "deep" ? "bg-[var(--accent-violet)] text-white" : "text-[var(--text-muted)]")}>Deep Mode</button>
         </div>
       </div>
 
       {mode === "simple" ? (
-        <div className="grid grid-cols-2 gap-4">
-          <TesseractCore />
-          <div className="space-y-4">
-            <NonCustodialWallet />
-            <DexSwap />
-            <LivingRelicsGrid />
+        <div className="space-y-4">
+          <QuarkWalletPro />
+          <div className="grid grid-cols-2 gap-4">
+            <TesseractCore />
+            <div className="space-y-4">
+              <NonCustodialWallet />
+              <DexSwap />
+              <LivingRelicsGrid />
+            </div>
           </div>
         </div>
       ) : isLoading ? (

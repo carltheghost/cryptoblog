@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.rfsam import generate_server_seed, hash_server_seed
 from core.models import (
+    CasinoWallet,
     CefiAccount,
     CustodyAllocation,
     DaoProposal,
@@ -61,6 +63,16 @@ async def seed_database(session: AsyncSession) -> None:
             agent_plugins={"pricebot": True, "rebalancer": False},
             recovery_guardians=[],
             batch_queue=[],
+        )
+    )
+    seed = generate_server_seed()
+    session.add(
+        CasinoWallet(
+            user_id=user.id,
+            mganga_chips=5000.0,
+            mwanjesa_chips=3000.0,
+            server_seed=seed,
+            server_seed_hash=hash_server_seed(seed),
         )
     )
 

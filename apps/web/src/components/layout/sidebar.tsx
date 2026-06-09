@@ -16,12 +16,14 @@ import {
   Hexagon,
   Gem,
   Bot,
+  Dices,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/trade", icon: TrendingUp, label: "Trade" },
+  { href: "/casino", icon: Dices, label: "Casino" },
   { href: "/wallet", icon: Wallet, label: "Quark Wallet" },
   { href: "/market", icon: ArrowLeftRight, label: "TessMarket" },
   { href: "/relics", icon: Gem, label: "Relics" },

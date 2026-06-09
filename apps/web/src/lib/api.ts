@@ -124,6 +124,27 @@ export const api = {
     createTicket: (data: object) => fetchApi("/api/support/tickets", { method: "POST", body: JSON.stringify(data) }),
     tickets: () => fetchApi<SupportTicket[]>("/api/support/tickets"),
   },
+  casino: {
+    games: () => fetchApi("/api/casino/games"),
+    wallet: () => fetchApi<{
+      mganga_chips: number; mwanjesa_chips: number; total_wagered: number; total_won: number;
+      games_played: number; win_streak: number; server_seed_hash: string; net_profit: number;
+    }>("/api/casino/wallet"),
+    bet: (data: { game: string; amount: number; currency?: string; choice?: string; client_seed?: string }) =>
+      fetchApi<{
+        bet_id: number; won: boolean; payout: number; multiplier: number; profit: number;
+        outcome: Record<string, unknown>;
+        proof: { algorithm: string; server_seed_hash: string; client_seed: string; nonce: number; digest: string; game: string };
+        chips_remaining: number; win_streak: number;
+      }>("/api/casino/bet", { method: "POST", body: JSON.stringify(data) }),
+    deposit: (amount: number, currency: string) =>
+      fetchApi("/api/casino/deposit", { method: "POST", body: JSON.stringify({ amount, currency }) }),
+    history: () => fetchApi<{ id: number; game: string; amount: number; payout: number; won: boolean; multiplier: number }[]>("/api/casino/history"),
+    leaderboard: () => fetchApi<{ rank: number; player: string; total_won: number; games_played: number; win_streak: number }[]>("/api/casino/leaderboard"),
+    liveFeed: () => fetchApi<{ player: string; game: string; won: boolean; multiplier: number; payout: number; amount: number }[]>("/api/casino/live-feed"),
+    verifyProof: (betId: number) => fetchApi<{ valid: boolean }>("/api/casino/rfsam/verify", { method: "POST", body: JSON.stringify({ bet_id: betId }) }),
+    rotateSeed: () => fetchApi("/api/casino/rfsam/rotate-seed", { method: "POST" }),
+  },
 };
 
 export const queryKeys = {
@@ -150,4 +171,8 @@ export const queryKeys = {
   supportTickets: ["support", "tickets"],
   tesslink: ["tesslink"],
   walletConfig: ["wallet", "config"],
+  casinoWallet: ["casino", "wallet"],
+  casinoHistory: ["casino", "history"],
+  casinoFeed: ["casino", "feed"],
+  casinoLeaderboard: ["casino", "leaderboard"],
 };
