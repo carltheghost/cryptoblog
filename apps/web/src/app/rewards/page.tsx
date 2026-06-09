@@ -17,7 +17,11 @@ export default function RewardsPage() {
       success: (r) => `Claimed ${(r as { claimed: number }).claimed} TRD!`,
     });
     qc.invalidateQueries({ queryKey: queryKeys.rewards });
-    qc.invalidateQueries({ queryKey: ["defi", "wallet"] });
+    qc.invalidateQueries({ queryKey: queryKeys.defiWallet("TRD-8F7C-29D1") });
+    qc.invalidateQueries({ queryKey: queryKeys.defiStaking });
+    qc.invalidateQueries({ queryKey: queryKeys.cefiEarn });
+    qc.invalidateQueries({ queryKey: queryKeys.cefiAccount });
+    qc.invalidateQueries({ queryKey: queryKeys.hybridBalances });
   };
 
   if (isLoading) return <LoadingSpinner />;

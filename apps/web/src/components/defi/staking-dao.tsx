@@ -27,6 +27,20 @@ export function StakingPanel() {
     setBusy(false);
   };
 
+  const unstake = async () => {
+    setBusy(true);
+    const result = await toastAction(
+      () => api.defi.unstake({ amount: parseFloat(amount), lock_days: 30 }),
+      { loading: "Unstaking...", success: (r) => `Unstaked ${(r as { unstaked: number }).unstaked} TRD` }
+    );
+    if (result) {
+      qc.invalidateQueries({ queryKey: queryKeys.defiStaking });
+      qc.invalidateQueries({ queryKey: ["defi", "wallet"] });
+      qc.invalidateQueries({ queryKey: queryKeys.hybridBalances });
+    }
+    setBusy(false);
+  };
+
   if (isLoading) return <GlassPanel title="Staking TRD" variant="violet"><LoadingSpinner className="py-4" /></GlassPanel>;
 
   return (
@@ -37,6 +51,7 @@ export function StakingPanel() {
       <div className="mt-2 flex gap-2">
         <input value={amount} onChange={(e) => setAmount(e.target.value)} className="input-field flex-1" type="number" min="1" />
         <button onClick={stake} disabled={busy} className="btn-primary btn-defi">Stake</button>
+        <button onClick={unstake} disabled={busy} className="btn-primary bg-[rgba(255,68,102,0.2)] text-[var(--accent-red)]">Unstake</button>
       </div>
     </GlassPanel>
   );

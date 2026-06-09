@@ -5,9 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
+import { toast } from "sonner";
 import { toastAction } from "@/hooks/use-toast-action";
 import { cn } from "@/lib/utils";
 import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
+import { ipfsToUrl } from "@/lib/ipfs";
 
 export default function RelicsPage() {
   const qc = useQueryClient();
@@ -21,8 +23,12 @@ export default function RelicsPage() {
     setUploading(true);
     try {
       const res = await api.storage.upload(file);
-      setForm((f) => ({ ...f, image_url: `https://api.dicebear.com/7.x/shapes/svg?seed=${(res as { cid: string }).cid}` }));
-    } catch { /* fallback */ }
+      const cid = (res as { cid: string }).cid;
+      setForm((f) => ({ ...f, image_url: cid }));
+      toast.success(`Pinned ${cid}`);
+    } catch {
+      toast.error("Upload failed");
+    }
     setUploading(false);
   };
 
@@ -79,6 +85,12 @@ export default function RelicsPage() {
             <button onClick={() => fileRef.current?.click()} className="btn-primary w-full bg-[rgba(138,43,226,0.15)] text-[var(--accent-violet)]">
               {uploading ? "Uploading to TessStorage..." : "Upload Media to IPFS"}
             </button>
+            {form.image_url && (
+              <div className="rounded-lg border border-[var(--border-glow)] p-2 text-[10px]">
+                <p className="truncate text-[var(--accent-cyan)]">{form.image_url}</p>
+                <img src={ipfsToUrl(form.image_url)} alt="preview" className="mt-2 h-16 w-16 rounded object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            )}
             <button onClick={mint} className="btn-primary btn-defi w-full">Submit for Validation</button>
           </div>
         </GlassPanel>
@@ -89,7 +101,7 @@ export default function RelicsPage() {
           {list.map((r) => (
             <GlassPanel key={r.token_id} variant="violet">
               <div className="flex gap-3">
-                <img src={r.image_url} alt={r.name} className="h-20 w-20 rounded-lg object-cover" />
+                <img src={r.image_url?.startsWith("ipfs://") ? ipfsToUrl(r.image_url) : r.image_url} alt={r.name} className="h-20 w-20 rounded-lg object-cover" />
                 <div className="flex-1">
                   <h3 className="font-semibold">{r.name}</h3>
                   <p className="text-[10px] text-[var(--text-muted)]">{r.token_id} · {r.type}</p>

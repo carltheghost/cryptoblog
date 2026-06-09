@@ -44,6 +44,7 @@ export const api = {
     chart: (pair: string) => fetchApi<{ candles: { open: number; high: number; low: number; close: number; time?: number }[] }>(`/api/cefi/chart/${pair}`),
     orders: () => fetchApi<CefiOrder[]>("/api/cefi/orders"),
     placeOrder: (data: object) => fetchApi("/api/cefi/orders", { method: "POST", body: JSON.stringify(data) }),
+    cancelOrder: (id: number) => fetchApi(`/api/cefi/orders/${id}/cancel`, { method: "POST" }),
     fiatDeposit: (data: object) => fetchApi("/api/cefi/fiat/deposit", { method: "POST", body: JSON.stringify(data) }),
     compliance: () => fetchApi<{ kyc_status: string; aml_compliant: boolean; tier: string }>("/api/cefi/compliance/status"),
     fraudScore: () => fetchApi<{ score: number; recommendation: string; factors: { name: string; score: number }[] }>("/api/cefi/fraud-score"),
@@ -84,12 +85,22 @@ export const api = {
     createListing: (data: object) => fetchApi("/api/market/listings", { method: "POST", body: JSON.stringify(data) }),
     purchase: (id: number) => fetchApi(`/api/market/purchase/${id}`, { method: "POST" }),
     barter: (data: object) => fetchApi("/api/market/barter", { method: "POST", body: JSON.stringify(data) }),
-    barters: () => fetchApi("/api/market/barter"),
+    barters: () => fetchApi<{ id: number; offer: { assets: string[] }; request: { assets: string[] }; status: string; created_at: string }[]>("/api/market/barter"),
+    acceptBarter: (id: number) => fetchApi(`/api/market/barter/${id}/accept`, { method: "POST" }),
   },
   agents: {
     list: () => fetchApi<TessAgent[]>("/api/agents/"),
     get: (id: number) => fetchApi<AgentDetail>(`/api/agents/${id}`),
     create: (data: object) => fetchApi("/api/agents/", { method: "POST", body: JSON.stringify(data) }),
+    execute: (id: number) => fetchApi<{ detail: string; earning: number; tasks_completed: number }>(`/api/agents/${id}/execute`, { method: "POST" }),
+  },
+  analytics: {
+    overview: () => fetchApi<{
+      volume_24h: number; cefi_volume_24h: number; defi_tx_24h: number; bridge_volume_24h: number;
+      casino_bets_24h: number; casino_wagered_24h: number; orders_24h: number; pool_tvl: number;
+      tesslink_edges: number; balances: Record<string, number>;
+      chains: { name: string; status: string; load: number }[];
+    }>("/api/analytics/overview"),
   },
   wallet: {
     config: () => fetchApi<WalletConfig>("/api/wallet/config"),
@@ -121,8 +132,11 @@ export const api = {
     claim: () => fetchApi("/api/rewards/claim", { method: "POST" }),
   },
   support: {
-    createTicket: (data: object) => fetchApi("/api/support/tickets", { method: "POST", body: JSON.stringify(data) }),
+    createTicket: (data: object) => fetchApi<{ id: number; response?: string }>("/api/support/tickets", { method: "POST", body: JSON.stringify(data) }),
     tickets: () => fetchApi<SupportTicket[]>("/api/support/tickets"),
+    getTicket: (id: number) => fetchApi<SupportTicket>(`/api/support/tickets/${id}`),
+    updateTicket: (id: number, data: { status: string }) =>
+      fetchApi(`/api/support/tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   casino: {
     games: () => fetchApi("/api/casino/games"),
@@ -214,4 +228,6 @@ export const queryKeys = {
   quantumState: ["omniverse", "quantum"],
   hiveMind: ["omniverse", "hive"],
   omegaProof: ["omniverse", "omega"],
+  analyticsOverview: ["analytics", "overview"],
+  marketBarters: ["market", "barters"],
 };

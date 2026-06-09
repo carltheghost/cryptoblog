@@ -9,9 +9,8 @@ import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 export default function AnalyticsPage() {
   const { data: graph, isLoading: gLoading } = useQuery({ queryKey: queryKeys.tesslink, queryFn: () => api.storage.tesslink() });
   const { data: health } = useQuery({ queryKey: queryKeys.health, queryFn: () => api.health() });
+  const { data: overview, isLoading: oLoading } = useQuery({ queryKey: queryKeys.analyticsOverview, queryFn: () => api.analytics.overview(), refetchInterval: 30000 });
   const { data: childChain } = useQuery({ queryKey: ["defi", "child-chain"], queryFn: () => api.defi.childChain() });
-  const { data: cefiStats } = useQuery({ queryKey: queryKeys.cefiStats, queryFn: () => api.cefi.stats() });
-  const { data: defiStats } = useQuery({ queryKey: queryKeys.defiStats, queryFn: () => api.defi.stats() });
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
@@ -21,12 +20,28 @@ export default function AnalyticsPage() {
       </div>
       <UnthinkablePanel dapp="analytics" action="omniscient-view" />
 
-      <div className="grid grid-cols-2 gap-4">
+      {oLoading ? <LoadingSpinner /> : (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            { label: "24H Volume", value: `$${(overview?.volume_24h ?? 0).toLocaleString()}`, color: "text-[var(--accent-cyan)]" },
+            { label: "CeFi Orders", value: overview?.orders_24h ?? 0, color: "text-[var(--accent-green)]" },
+            { label: "Casino Bets", value: overview?.casino_bets_24h ?? 0, color: "text-[var(--accent-gold)]" },
+            { label: "Pool TVL", value: `$${(overview?.pool_tvl ?? 0).toLocaleString()}`, color: "text-[var(--accent-violet)]" },
+          ].map(({ label, value, color }) => (
+            <GlassPanel key={label}>
+              <p className="text-[10px] text-[var(--text-muted)]">{label}</p>
+              <p className={`text-lg font-black ${color}`}>{value}</p>
+            </GlassPanel>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <GlassPanel title="Tessalink Hypergraph">
           {gLoading ? <LoadingSpinner className="py-4" /> : (
             <>
               <p className="text-xs text-[var(--text-muted)]">
-                {graph?.nodes?.length || 0} nodes · {graph?.edges?.length || 0} edges
+                {graph?.nodes?.length || 0} nodes · {graph?.edges?.length || 0} edges · {overview?.tesslink_edges ?? 0} tracked
               </p>
               <div className="mt-3 max-h-64 overflow-y-auto scrollbar-thin space-y-2">
                 {(graph?.edges || []).map((e, i) => (
@@ -44,12 +59,15 @@ export default function AnalyticsPage() {
         <GlassPanel title="Network Health" variant="green">
           <div className="space-y-3 text-xs">
             <div className="flex justify-between"><span>API Status</span><span className="text-[var(--accent-green)]">{health?.status || "checking..."}</span></div>
-            <div className="flex justify-between"><span>MGANGA Chain (PoA)</span><span className="text-[var(--accent-green)]">Active</span></div>
-            <div className="flex justify-between"><span>MWANJESA Chain (PoS)</span><span className="text-[var(--accent-green)]">Active</span></div>
+            {(overview?.chains || []).map((c) => (
+              <div key={c.name} className="flex justify-between">
+                <span>{c.name}</span>
+                <span className="text-[var(--accent-green)]">{c.status} · {c.load}% load</span>
+              </div>
+            ))}
             <div className="flex justify-between"><span>{childChain?.name}</span><span className="text-[var(--accent-violet)]">{childChain?.validators} validators</span></div>
-            <div className="flex justify-between"><span>CeFi 24H Volume</span><span>${((cefiStats?.volume_24h ?? 0) / 1e9).toFixed(2)}B</span></div>
-            <div className="flex justify-between"><span>DeFi TVL</span><span>${((defiStats?.tvl ?? 0) / 1e9).toFixed(2)}B</span></div>
-            <div className="flex justify-between"><span>DAG Finality</span><span className="text-[var(--accent-cyan)]">&lt; 1 sec</span></div>
+            <div className="flex justify-between"><span>Bridge 24H</span><span>${(overview?.bridge_volume_24h ?? 0).toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>DeFi TX 24H</span><span>{overview?.defi_tx_24h ?? 0}</span></div>
           </div>
         </GlassPanel>
       </div>

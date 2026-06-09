@@ -34,6 +34,17 @@ export default function AgentsPage() {
     qc.invalidateQueries({ queryKey: queryKeys.agents });
   };
 
+  const execute = async (id: number) => {
+    await toastAction(
+      () => api.agents.execute(id),
+      { success: (r) => (r as { detail: string }).detail }
+    );
+    qc.invalidateQueries({ queryKey: queryKeys.agents });
+    qc.invalidateQueries({ queryKey: ["agents", id] });
+    qc.invalidateQueries({ queryKey: queryKeys.cefiOrders });
+    qc.invalidateQueries({ queryKey: queryKeys.defiRelics });
+  };
+
   const perf = detail?.performance;
 
   return (
@@ -71,7 +82,12 @@ export default function AgentsPage() {
               key={a.id}
               variant={a.type === "administrative" ? "default" : "violet"}
               className={cn("cursor-pointer transition-all", selected === a.id && "ring-1 ring-[var(--accent-violet)]")}
-              action={<button onClick={() => setSelected(selected === a.id ? null : a.id)} className="text-[10px] text-[var(--text-muted)]">{selected === a.id ? "Close" : "Details"}</button>}
+              action={
+                <div className="flex gap-2">
+                  <button onClick={() => execute(a.id)} className="text-[10px] text-[var(--accent-cyan)] hover:underline">Run</button>
+                  <button onClick={() => setSelected(selected === a.id ? null : a.id)} className="text-[10px] text-[var(--text-muted)]">{selected === a.id ? "Close" : "Details"}</button>
+                </div>
+              }
             >
               <h3 className="font-semibold">{a.name}</h3>
               <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{a.type}</span>

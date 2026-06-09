@@ -1,8 +1,12 @@
 import asyncio
-import json
 import random
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import func, select
+
+from api.cefi_helpers import PAIR_PRICES, pair_price
+from core.database import async_session
+from core.models import Order
 
 router = APIRouter()
 
@@ -19,18 +23,40 @@ class ConnectionManager:
         if ws in self.active:
             self.active.remove(ws)
 
-    async def broadcast(self, message: dict):
-        dead = []
-        for ws in self.active:
-            try:
-                await ws.send_json(message)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws)
-
 
 manager = ConnectionManager()
+
+
+async def build_ticker():
+    async with async_session() as session:
+        pairs = []
+        for symbol, base in PAIR_PRICES.items():
+            filled = (await session.execute(
+                select(func.count(Order.id)).where(Order.pair == symbol, Order.status == "filled")
+            )).scalar() or 0
+            jitter = random.uniform(-base * 0.002, base * 0.002)
+            pairs.append({
+                "symbol": symbol,
+                "price": round(base + jitter, 4),
+                "change": round((filled * 0.1) + random.uniform(-1, 2), 2),
+            })
+        return {"type": "ticker", "pairs": pairs}
+
+
+async def build_orderbook(pair: str):
+    async with async_session() as session:
+        base = pair_price(pair)
+        jitter = random.uniform(-2, 2)
+        open_orders = (await session.execute(
+            select(Order).where(Order.pair == pair, Order.status == "open").order_by(Order.price.desc()).limit(10)
+        )).scalars().all()
+        bids = [{"price": o.price, "amount": round(o.amount - o.filled, 6)} for o in open_orders if o.side == "buy"]
+        asks = [{"price": o.price, "amount": round(o.amount - o.filled, 6)} for o in open_orders if o.side == "sell"]
+        if not bids:
+            bids = [{"price": round(base + jitter - i, 2), "amount": round(random.uniform(0.1, 2.5), 4)} for i in range(5)]
+        if not asks:
+            asks = [{"price": round(base + jitter + i, 2), "amount": round(random.uniform(0.1, 2.5), 4)} for i in range(5)]
+        return {"type": "orderbook", "pair": pair, "bids": bids[:8], "asks": asks[:8]}
 
 
 @router.websocket("/ws/ticker")
@@ -38,17 +64,7 @@ async def ticker_ws(ws: WebSocket):
     await manager.connect(ws)
     try:
         while True:
-            data = {
-                "type": "ticker",
-                "pairs": [
-                    {"symbol": "BTC/USDT", "price": round(68432.18 + random.uniform(-50, 50), 2), "change": round(random.uniform(-2, 3), 2)},
-                    {"symbol": "ETH/USDT", "price": round(3456.72 + random.uniform(-20, 20), 2), "change": round(random.uniform(-2, 3), 2)},
-                    {"symbol": "TRD/USDT", "price": round(0.2457 + random.uniform(-0.01, 0.01), 4), "change": round(random.uniform(-2, 5), 2)},
-                    {"symbol": "SOL/USDT", "price": round(178.34 + random.uniform(-5, 5), 2), "change": round(random.uniform(-2, 3), 2)},
-                    {"symbol": "BNB/USDT", "price": round(612.50 + random.uniform(-10, 10), 2), "change": round(random.uniform(-2, 3), 2)},
-                ],
-            }
-            await ws.send_json(data)
+            await ws.send_json(await build_ticker())
             await asyncio.sleep(2)
     except WebSocketDisconnect:
         manager.disconnect(ws)
@@ -59,20 +75,7 @@ async def orderbook_ws(ws: WebSocket, pair: str):
     await manager.connect(ws)
     try:
         while True:
-            jitter = random.uniform(-3, 3)
-            data = {
-                "type": "orderbook",
-                "pair": pair,
-                "bids": [
-                    {"price": round(68430.12 + jitter - i, 2), "amount": round(random.uniform(0.1, 2.5), 4)}
-                    for i in range(5)
-                ],
-                "asks": [
-                    {"price": round(68432.18 + jitter + i, 2), "amount": round(random.uniform(0.1, 2.5), 4)}
-                    for i in range(5)
-                ],
-            }
-            await ws.send_json(data)
+            await ws.send_json(await build_orderbook(pair))
             await asyncio.sleep(1)
     except WebSocketDisconnect:
         manager.disconnect(ws)

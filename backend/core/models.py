@@ -163,6 +163,10 @@ class TessAgent(Base):
     budget: Mapped[float] = mapped_column(Float, default=100.0)
     stake: Mapped[float] = mapped_column(Float, default=0.0)
     permissions: Mapped[Optional[dict]] = mapped_column(JSON)
+    tasks_completed: Mapped[int] = mapped_column(Integer, default=0)
+    accuracy: Mapped[float] = mapped_column(Float, default=95.0)
+    earnings: Mapped[float] = mapped_column(Float, default=0.0)
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class TessLinkEdge(Base):
@@ -202,7 +206,9 @@ class SupportTicket(Base):
     message: Mapped[str] = mapped_column(Text)
     priority: Mapped[str] = mapped_column(String(16), default="normal")
     status: Mapped[str] = mapped_column(String(16), default="open")
+    response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class UserPreference(Base):

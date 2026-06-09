@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas import AgentPluginsUpdate, BatchTransaction, MultisigSetup, RecoverySetup
 from core.database import get_db
-from core.models import User, UserPreference
+from core.models import CefiAccount, DefiTransaction, DefiWallet, User, UserPreference
 
 router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
@@ -37,6 +37,70 @@ async def get_prefs(session: AsyncSession, user_id: int) -> UserPreference:
     if prefs.batch_queue is None:
         prefs.batch_queue = []
     return prefs
+
+
+async def execute_batch_action(session: AsyncSession, user: User, item: dict) -> dict:
+    action = item.get("action", "")
+    amount = float(item.get("amount", 0))
+    token = (item.get("token") or "MGANGA").upper()
+    tx_hash = f"0x{random.randbytes(16).hex()}"
+
+    if action == "bridge":
+        cefi = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+        defi = (await session.execute(select(DefiWallet).where(DefiWallet.user_id == user.id))).scalar_one()
+        direction = item.get("target") or "cefi_to_defi"
+        rate = 0.98
+        if direction == "cefi_to_defi":
+            if amount > cefi.mganga_balance:
+                raise ValueError("Insufficient CeFi balance for bridge")
+            cefi.mganga_balance -= amount
+            defi.mwanjesa_balance += amount * rate
+        else:
+            if amount > defi.mwanjesa_balance:
+                raise ValueError("Insufficient DeFi balance for bridge")
+            defi.mwanjesa_balance -= amount
+            cefi.mganga_balance += amount * rate
+        session.add(DefiTransaction(user_id=user.id, tx_type="hyb_bridge", amount=amount, tx_hash=tx_hash, status="confirmed"))
+        return {"action": action, "status": "executed", "tx_hash": tx_hash, "detail": f"Bridged {amount} via HYB"}
+
+    if action == "stake":
+        defi = (await session.execute(select(DefiWallet).where(DefiWallet.user_id == user.id))).scalar_one()
+        if amount > defi.mwanjesa_balance:
+            raise ValueError("Insufficient MWANJESA for stake")
+        defi.mwanjesa_balance -= amount
+        defi.staked_trd += amount
+        session.add(DefiTransaction(user_id=user.id, tx_type="stake", from_token="MWANJESA", amount=amount, tx_hash=tx_hash, status="confirmed"))
+        return {"action": action, "status": "executed", "tx_hash": tx_hash, "detail": f"Staked {amount} TRD"}
+
+    if action == "earn":
+        cefi = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+        if amount > cefi.mganga_balance:
+            raise ValueError("Insufficient MGANGA for earn stake")
+        cefi.mganga_balance -= amount
+        cefi.staked_mganga += amount
+        return {"action": action, "status": "executed", "tx_hash": tx_hash, "detail": f"Staked {amount} MGANGA in CeFi earn"}
+
+    if action == "swap":
+        defi = (await session.execute(select(DefiWallet).where(DefiWallet.user_id == user.id))).scalar_one()
+        from api.defi_helpers import swap_tokens
+        try:
+            output, _ = swap_tokens(defi, token, "TRD", amount)
+        except ValueError as e:
+            raise ValueError(str(e))
+        session.add(DefiTransaction(
+            user_id=user.id, tx_type="swap", from_token=token, to_token="TRD",
+            amount=amount, output_amount=output, tx_hash=tx_hash, status="confirmed",
+        ))
+        return {"action": action, "status": "executed", "tx_hash": tx_hash, "detail": f"Swapped {amount} {token} → {output:.4f} TRD"}
+
+    if action == "transfer":
+        cefi = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+        if amount > cefi.mganga_balance:
+            raise ValueError("Insufficient balance for transfer")
+        cefi.mganga_balance -= amount
+        return {"action": action, "status": "executed", "tx_hash": tx_hash, "detail": f"Transferred {amount} {token}"}
+
+    return {"action": action, "status": "skipped", "tx_hash": tx_hash, "detail": f"Unknown action {action}"}
 
 
 @router.get("/config")
@@ -143,13 +207,22 @@ async def execute_batch(session: AsyncSession = Depends(get_db)):
         raise HTTPException(400, "Batch queue is empty")
     executed = []
     for item in queue:
-        item["status"] = "executed"
-        item["tx_hash"] = f"0x{random.randbytes(8).hex()}"
-        executed.append(item)
+        try:
+            result = await execute_batch_action(session, user, item)
+            item["status"] = result["status"]
+            item["tx_hash"] = result.get("tx_hash")
+            item["detail"] = result.get("detail")
+            executed.append(item)
+        except ValueError as e:
+            item["status"] = "failed"
+            item["error"] = str(e)
+            executed.append(item)
     prefs.batch_queue = []
     await session.commit()
+    success = sum(1 for e in executed if e.get("status") == "executed")
     return {
-        "executed": len(executed),
+        "executed": success,
+        "failed": len(executed) - success,
         "transactions": executed,
-        "message": f"Atomic batch of {len(executed)} transactions confirmed",
+        "message": f"Batch: {success}/{len(executed)} transactions confirmed on-chain",
     }

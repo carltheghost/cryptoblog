@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "./sidebar";
+import { MobileNav } from "./mobile-nav";
 import { Header } from "./header";
 import { PriceTicker } from "./ticker";
 import { ChronoRibbon } from "@/components/omniverse/chrono-ribbon";
@@ -24,8 +25,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
     >
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <Sidebar className="hidden md:flex" />
+        <div className="flex flex-1 flex-col overflow-hidden pb-16 md:pb-0">
           <Header />
           <TesseractField />
           <main className={cn("omniverse-main flex-1 overflow-y-auto scrollbar-thin p-4", `dim-${dimension}`, overdrive && "overdrive-active", dimension === 99 && "dim-infinite")}>
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <PriceTicker />
         </div>
       </div>
+      <MobileNav />
     </div>
   );
 }

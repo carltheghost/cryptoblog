@@ -226,6 +226,7 @@ async def place_bet(body: BetRequest, session: AsyncSession = Depends(get_db)):
     proof = {
         "algorithm": "RF-SAM v1",
         "server_seed_hash": wallet.server_seed_hash,
+        "server_seed": wallet.server_seed,
         "client_seed": body.client_seed,
         "nonce": nonce,
         "digest": outcome["digest"],
@@ -306,21 +307,24 @@ async def leaderboard(session: AsyncSession = Depends(get_db)):
 
 @router.get("/live-feed")
 async def live_feed(session: AsyncSession = Depends(get_db)):
+    from core.models import User
+
     result = await session.execute(select(CasinoBet).order_by(CasinoBet.created_at.desc()).limit(15))
     bets = result.scalars().all()
-    names = ["NovaKing", "CryptoQueen", "TessMaster", "DiceLord", "SlotWizard", "TraderOne Pro"]
-    return [
-        {
-            "player": random.choice(names),
+    feed = []
+    for b in bets:
+        user = (await session.execute(select(User).where(User.id == b.user_id))).scalar_one_or_none()
+        feed.append({
+            "player": user.display_name if user else "Anonymous",
             "game": b.game,
             "won": b.won,
             "multiplier": b.multiplier,
             "payout": b.payout,
             "amount": b.bet_amount,
-        }
-        for b in bets
-    ] or [
-        {"player": "TraderOne Pro", "game": "tess-slots", "won": True, "multiplier": 10, "payout": 500, "amount": 50}
+            "bet_id": b.id,
+        })
+    return feed or [
+        {"player": "TraderOne Pro", "game": "tess-slots", "won": True, "multiplier": 10, "payout": 500, "amount": 50, "bet_id": 0}
     ]
 
 
@@ -332,8 +336,9 @@ async def rfsam_verify(body: VerifyRequest, session: AsyncSession = Depends(get_
     user = await get_demo_user(session)
     wallet = await get_casino_wallet(session, user.id)
     proof = bet.proof_json
+    seed = proof.get("server_seed") or wallet.server_seed
     result = verify_proof(
-        wallet.server_seed,
+        seed,
         proof["server_seed_hash"],
         proof["client_seed"],
         proof["nonce"],

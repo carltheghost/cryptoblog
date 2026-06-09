@@ -40,11 +40,33 @@ export function SpotTrading() {
       if (btc) { setPrice(btc.price); setChange(btc.change); }
     });
 
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    const connectWs = () => {
+      try {
+        ws = new WebSocket(`${wsUrl}/ws/ticker`);
+        ws.onmessage = (e) => {
+          const data = JSON.parse(e.data);
+          const btc = data.pairs?.find((p: { symbol: string }) => p.symbol === "BTC/USDT");
+          if (btc) { setPrice(btc.price); setChange(btc.change); }
+        };
+        ws.onclose = () => { reconnectTimer = setTimeout(connectWs, 5000); };
+        ws.onerror = () => ws?.close();
+      } catch { /* REST fallback above */ }
+    };
+    connectWs();
+
     const ro = new ResizeObserver(() => {
       if (chartRef.current) chart.applyOptions({ width: chartRef.current.clientWidth });
     });
     ro.observe(chartRef.current);
-    return () => { chart.remove(); ro.disconnect(); };
+    return () => {
+      chart.remove();
+      ro.disconnect();
+      ws?.close();
+      clearTimeout(reconnectTimer);
+    };
   }, []);
 
   const placeOrder = async () => {

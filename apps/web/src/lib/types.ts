@@ -56,12 +56,15 @@ export interface SupportTicket {
   message: string;
   priority: string;
   status: string;
+  response?: string | null;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface RewardPool {
   name: string;
   amount: number;
+  claimable?: number;
   token: string;
   description: string;
 }

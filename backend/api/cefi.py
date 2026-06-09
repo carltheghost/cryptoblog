@@ -1,10 +1,11 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.cefi_helpers import PAIR_PRICES, apply_buy, apply_sell, order_notional, pair_price
 from api.schemas import EarnStakeRequest, FiatDepositCreate, OrderCreate
 from core.database import get_db
 from core.models import CefiAccount, CustodyAllocation, FiatDeposit, Order, User
@@ -54,24 +55,32 @@ async def get_account(session: AsyncSession = Depends(get_db)):
 
 
 @router.get("/orderbook/{pair}")
-async def get_orderbook(pair: str):
-    jitter = random.uniform(-5, 5)
-    bids = [{**b, "price": round(b["price"] + jitter, 2)} for b in ORDER_BOOK["bids"]]
-    asks = [{**a, "price": round(a["price"] + jitter, 2)} for a in ORDER_BOOK["asks"]]
-    return {"pair": pair, "bids": bids, "asks": asks, "last_price": 68432.18 + jitter}
+async def get_orderbook(pair: str, session: AsyncSession = Depends(get_db)):
+    base = pair_price(pair)
+    jitter = random.uniform(-2, 2)
+    open_orders = (await session.execute(
+        select(Order).where(Order.pair == pair, Order.status == "open").order_by(Order.price.desc()).limit(20)
+    )).scalars().all()
+    bid_orders = [{"price": o.price, "amount": o.amount - o.filled} for o in open_orders if o.side == "buy"]
+    ask_orders = [{"price": o.price, "amount": o.amount - o.filled} for o in open_orders if o.side == "sell"]
+    seed_bids = [{**b, "price": round(b["price"] + jitter, 2)} for b in ORDER_BOOK["bids"]]
+    seed_asks = [{**a, "price": round(a["price"] + jitter, 2)} for a in ORDER_BOOK["asks"]]
+    bids = (bid_orders + seed_bids)[:8]
+    asks = (ask_orders + seed_asks)[:8]
+    return {"pair": pair, "bids": bids, "asks": asks, "last_price": round(base + jitter, 4)}
 
 
 @router.get("/ticker")
-async def get_ticker():
-    return {
-        "pairs": [
-            {"symbol": "BTC/USDT", "price": 68432.18, "change": 1.92},
-            {"symbol": "ETH/USDT", "price": 3456.72, "change": -0.45},
-            {"symbol": "TRD/USDT", "price": 0.2457, "change": 3.88},
-            {"symbol": "SOL/USDT", "price": 178.34, "change": 2.11},
-            {"symbol": "BNB/USDT", "price": 612.50, "change": 0.78},
-        ]
-    }
+async def get_ticker(session: AsyncSession = Depends(get_db)):
+    since = datetime.utcnow() - timedelta(hours=24)
+    pairs = []
+    for symbol, base in PAIR_PRICES.items():
+        filled = (await session.execute(
+            select(func.count(Order.id)).where(Order.pair == symbol, Order.status == "filled", Order.created_at >= since)
+        )).scalar() or 0
+        change = round((filled * 0.15) + random.uniform(-1, 2), 2)
+        pairs.append({"symbol": symbol, "price": round(base + random.uniform(-base * 0.002, base * 0.002), 4), "change": change})
+    return {"pairs": pairs}
 
 
 @router.get("/chart/{pair}")
@@ -90,20 +99,72 @@ async def get_chart(pair: str, interval: str = "1h"):
 @router.post("/orders")
 async def place_order(body: OrderCreate, session: AsyncSession = Depends(get_db)):
     user = await get_demo_user(session)
+    account = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    if body.amount <= 0:
+        raise HTTPException(400, "Invalid amount")
+    exec_price = body.price if body.order_type == "limit" else pair_price(body.pair)
+    if exec_price <= 0:
+        raise HTTPException(400, "Invalid price")
+
+    try:
+        if body.side == "buy":
+            cost = order_notional(body.amount, exec_price)
+            if body.order_type == "market":
+                apply_buy(account, body.amount, exec_price, True)
+                status, filled = "filled", body.amount
+            else:
+                if account.mganga_balance < cost:
+                    raise HTTPException(400, "Insufficient MGANGA for limit buy")
+                account.mganga_balance -= cost
+                status, filled = "open", 0.0
+        else:
+            if body.order_type == "market":
+                apply_sell(account, body.amount, exec_price)
+                status, filled = "filled", body.amount
+            else:
+                status, filled = "open", 0.0
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     order = Order(
         user_id=user.id,
         pair=body.pair,
         side=body.side,
         order_type=body.order_type,
-        price=body.price,
+        price=exec_price,
         amount=body.amount,
-        status="filled" if body.order_type == "market" else "open",
-        filled=body.amount if body.order_type == "market" else 0.0,
+        status=status,
+        filled=filled,
     )
     session.add(order)
     await session.commit()
     await session.refresh(order)
-    return {"id": order.id, "status": order.status, "message": f"{body.side.upper()} order placed"}
+    return {
+        "id": order.id,
+        "status": order.status,
+        "filled": order.filled,
+        "notional": order_notional(order.amount, exec_price),
+        "message": f"{body.side.upper()} {body.order_type} order {'filled' if status == 'filled' else 'placed'}",
+    }
+
+
+@router.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: int, session: AsyncSession = Depends(get_db)):
+    user = await get_demo_user(session)
+    account = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    order = (await session.execute(
+        select(Order).where(Order.id == order_id, Order.user_id == user.id)
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.status != "open":
+        raise HTTPException(400, "Only open orders can be cancelled")
+    if order.side == "buy":
+        refund = order_notional(order.amount - order.filled, order.price)
+        account.mganga_balance += refund
+    order.status = "cancelled"
+    await session.commit()
+    return {"id": order.id, "status": "cancelled", "refunded": order.side == "buy"}
 
 
 @router.get("/orders")
@@ -132,6 +193,9 @@ async def list_orders(session: AsyncSession = Depends(get_db)):
 @router.post("/fiat/deposit")
 async def fiat_deposit(body: FiatDepositCreate, session: AsyncSession = Depends(get_db)):
     user = await get_demo_user(session)
+    fee_rate = 0.025 if body.method == "card" else 0.0
+    fee = round(body.amount * fee_rate, 2)
+    net = body.amount - fee
     deposit = FiatDeposit(
         user_id=user.id,
         method=body.method,
@@ -142,10 +206,10 @@ async def fiat_deposit(body: FiatDepositCreate, session: AsyncSession = Depends(
     session.add(deposit)
     result = await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))
     account = result.scalar_one()
-    account.usd_balance += body.amount
-    account.mganga_balance += body.amount
+    account.usd_balance += net
+    account.mganga_balance += net
     await session.commit()
-    return {"id": deposit.id, "status": "completed", "new_balance": account.mganga_balance}
+    return {"id": deposit.id, "status": "completed", "fee": fee, "credited": net, "new_balance": account.mganga_balance}
 
 
 @router.get("/compliance/status")
@@ -198,11 +262,24 @@ async def custody_vault(session: AsyncSession = Depends(get_db)):
 
 
 @router.get("/stats")
-async def cefi_stats():
+async def cefi_stats(session: AsyncSession = Depends(get_db)):
+    since = datetime.utcnow() - timedelta(hours=24)
+    volume = (await session.execute(
+        select(func.coalesce(func.sum(Order.amount * Order.price), 0)).where(
+            Order.status == "filled", Order.created_at >= since
+        )
+    )).scalar() or 0
+    open_count = (await session.execute(
+        select(func.count(Order.id)).where(Order.status == "open")
+    )).scalar() or 0
+    open_notional = (await session.execute(
+        select(func.coalesce(func.sum(Order.amount * Order.price), 0)).where(Order.status == "open")
+    )).scalar() or 0
     return {
-        "volume_24h": 2.45e9,
-        "open_interest": 1.12e9,
-        "users_online": 23845,
+        "volume_24h": round(float(volume), 2),
+        "open_interest": round(float(open_notional), 2),
+        "open_orders": open_count,
+        "users_online": 23845 + open_count * 12,
         "uptime": 99.99,
     }
 

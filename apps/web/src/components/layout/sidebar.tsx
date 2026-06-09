@@ -38,11 +38,11 @@ const navItems = [
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-16 flex-col items-center gap-1 border-r border-[var(--border-glow)] bg-[rgba(5,7,10,0.95)] py-4">
+    <aside className={cn("flex w-16 flex-col items-center gap-1 border-r border-[var(--border-glow)] bg-[rgba(5,7,10,0.95)] py-4", className)}>
       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--accent-cyan)] to-[var(--accent-violet)]">
         <Hexagon className="h-5 w-5 text-white" />
       </div>

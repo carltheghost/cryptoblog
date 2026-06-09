@@ -1,8 +1,8 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.defi_helpers import SWAP_RATES, get_token_balances, set_token_balance, swap_tokens
@@ -183,6 +183,11 @@ async def cast_vote(body: VoteRequest, session: AsyncSession = Depends(get_db)):
     proposal = (await session.execute(select(DaoProposal).where(DaoProposal.id == body.proposal_id))).scalar_one_or_none()
     if not proposal:
         raise HTTPException(404, "Proposal not found")
+    existing = (await session.execute(
+        select(DaoVote).where(DaoVote.proposal_id == body.proposal_id, DaoVote.user_id == user.id)
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(400, "Already voted on this proposal")
     session.add(DaoVote(proposal_id=body.proposal_id, user_id=user.id, support=body.support, weight=1.0))
     if body.support:
         proposal.votes_for += 1
@@ -215,8 +220,12 @@ async def get_relics(session: AsyncSession = Depends(get_db)):
 @router.post("/relics/mint")
 async def mint_relic(body: RelicMintRequest, session: AsyncSession = Depends(get_db)):
     user = await get_demo_user(session)
-    token_id = f"REL-{random.randint(100, 999)}"
+    wallet = (await session.execute(select(DefiWallet).where(DefiWallet.user_id == user.id))).scalar_one()
     soul_reserve = 250.0
+    if wallet.mwanjesa_balance < soul_reserve:
+        raise HTTPException(400, "Insufficient MWANJESA to lock soul reserve (250 required)")
+    wallet.mwanjesa_balance -= soul_reserve
+    token_id = f"REL-{random.randint(100, 999)}"
     relic = LivingRelic(
         token_id=token_id, owner_id=user.id, name=body.name, description=body.description,
         image_url=body.image_url or f"https://api.dicebear.com/7.x/shapes/svg?seed={token_id}",
@@ -233,9 +242,17 @@ async def validate_relic(token_id: str, session: AsyncSession = Depends(get_db))
     relic = (await session.execute(select(LivingRelic).where(LivingRelic.token_id == token_id))).scalar_one_or_none()
     if not relic:
         raise HTTPException(404, "Relic not found")
-    relic.status = "minted"
+    if relic.status != "pending":
+        raise HTTPException(400, f"Relic status is {relic.status}, not pending")
+    meta = dict(relic.metadata_json or {})
+    validations = meta.get("validations", 0) + 1
+    meta["validations"] = validations
+    meta["last_validated_at"] = datetime.utcnow().isoformat()
+    relic.metadata_json = meta
+    if validations >= 1:
+        relic.status = "minted"
     await session.commit()
-    return {"token_id": token_id, "status": "minted"}
+    return {"token_id": token_id, "status": relic.status, "validations": validations}
 
 
 @router.post("/bridge")
@@ -305,19 +322,28 @@ async def get_transactions(session: AsyncSession = Depends(get_db)):
 
 
 @router.get("/stats")
-async def defi_stats():
+async def defi_stats(session: AsyncSession = Depends(get_db)):
+    pools = (await session.execute(select(DefiPool))).scalars().all()
+    since = datetime.utcnow() - timedelta(hours=24)
+    tx_vol = (await session.execute(
+        select(func.coalesce(func.sum(DefiTransaction.amount), 0)).where(DefiTransaction.created_at >= since)
+    )).scalar() or 0
+    tvl = sum(p.tvl for p in pools)
+    avg_apy = sum(p.apy for p in pools) / max(len(pools), 1)
     return {
-        "tvl": 1.32e9,
-        "volume_24h": 890e6,
-        "active_pools": 12,
+        "tvl": round(tvl, 2),
+        "volume_24h": round(float(tx_vol), 2),
+        "active_pools": len(pools),
         "validators": 128,
-        "avg_apy": 14.2,
+        "avg_apy": round(avg_apy, 2),
     }
 
 
 @router.get("/child-chain")
-async def child_chain_info():
+async def child_chain_info(session: AsyncSession = Depends(get_db)):
+    pools = (await session.execute(select(DefiPool))).scalars().all()
+    tvl = sum(p.tvl for p in pools) * 0.16
     return {
-        "name": "TribeChain Alpha", "tvl": 215600000.0, "block_time": 1.2,
+        "name": "TribeChain Alpha", "tvl": round(tvl, 2), "block_time": 1.2,
         "consensus": "PoS", "validators": 128, "status": "active",
     }

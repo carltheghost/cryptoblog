@@ -10,6 +10,7 @@ import { CASINO_GAMES } from "@/lib/casino-games";
 import { api, queryKeys } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { UnthinkablePanel, OmniExecuteBar } from "@/components/omniverse/unthinkable-panel";
+import { CasinoWalletPanel } from "@/components/casino/casino-wallet-panel";
 
 export default function CasinoPage() {
   const { data: wallet, isLoading: wLoading } = useQuery({ queryKey: queryKeys.casinoWallet, queryFn: () => api.casino.wallet() });
@@ -42,7 +43,9 @@ export default function CasinoPage() {
       <UnthinkablePanel dapp="casino" action="probability-weave" />
       <OmniExecuteBar dapps={["casino", "wallet", "relics"]} />
 
-      <div className="grid grid-cols-4 gap-3">
+      <CasinoWalletPanel />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {CASINO_GAMES.map((g) => (
           <Link key={g.id} href={`/casino/${g.id}`}>
             <GlassPanel
@@ -66,7 +69,7 @@ export default function CasinoPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <GlassPanel title="Live Wins" action={<Radio className="h-3 w-3 animate-pulse text-[var(--accent-red)]" />}>
           <div className="max-h-48 space-y-2 overflow-y-auto scrollbar-thin text-[10px]">
             {(feed || []).map((f, i) => (

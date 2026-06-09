@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import agents, casino, cefi, defi, identity, market, omniverse, rewards, storage, support, wallet, websocket
+from api import agents, analytics, casino, cefi, defi, identity, market, omniverse, rewards, storage, support, wallet, websocket
 from core.config import settings
 from core.database import async_session, init_db
 from core.seed import seed_database
@@ -33,6 +33,7 @@ app.include_router(defi.router)
 app.include_router(identity.router)
 app.include_router(market.router)
 app.include_router(agents.router)
+app.include_router(analytics.router)
 app.include_router(storage.router)
 app.include_router(rewards.router)
 app.include_router(support.router)

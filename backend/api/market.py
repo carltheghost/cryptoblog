@@ -116,6 +116,33 @@ async def list_barters(session: AsyncSession = Depends(get_db)):
         {
             "id": b.id, "offer": b.offer_assets, "request": b.request_assets,
             "status": b.status, "created_at": b.created_at.isoformat(),
+            "user_id": b.user_id,
         }
         for b in result.scalars().all()
     ]
+
+
+@router.post("/barter/{offer_id}/accept")
+async def accept_barter(offer_id: int, session: AsyncSession = Depends(get_db)):
+    user = await get_demo_user(session)
+    offer = (await session.execute(select(BarterOffer).where(BarterOffer.id == offer_id))).scalar_one_or_none()
+    if not offer:
+        raise HTTPException(404, "Barter offer not found")
+    if offer.status != "pending":
+        raise HTTPException(400, "Offer no longer available")
+    if offer.user_id == user.id:
+        raise HTTPException(400, "Cannot accept your own offer")
+
+    cefi = (await session.execute(select(CefiAccount).where(CefiAccount.user_id == user.id))).scalar_one()
+    fee = 5.0
+    if cefi.mganga_balance < fee:
+        raise HTTPException(400, "Insufficient MGANGA for barter settlement fee")
+    cefi.mganga_balance -= fee
+    offer.status = "completed"
+    await session.commit()
+    return {
+        "id": offer.id,
+        "status": "completed",
+        "settlement_fee": fee,
+        "message": "Barter swap settled — assets exchanged via TessMarket atomic swap",
+    }
