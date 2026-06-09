@@ -9,6 +9,7 @@ import { Hypercube4D } from "@/components/casino/hypercube-4d";
 import { CASINO_GAMES } from "@/lib/casino-games";
 import { api, queryKeys } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { UnthinkablePanel, OmniExecuteBar } from "@/components/omniverse/unthinkable-panel";
 
 export default function CasinoPage() {
   const { data: wallet, isLoading: wLoading } = useQuery({ queryKey: queryKeys.casinoWallet, queryFn: () => api.casino.wallet() });
@@ -37,6 +38,9 @@ export default function CasinoPage() {
           )}
         </div>
       </div>
+
+      <UnthinkablePanel dapp="casino" action="probability-weave" />
+      <OmniExecuteBar dapps={["casino", "wallet", "relics"]} />
 
       <div className="grid grid-cols-4 gap-3">
         {CASINO_GAMES.map((g) => (

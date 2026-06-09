@@ -9,6 +9,7 @@ import { StakingPanel, DaoVote } from "@/components/defi/staking-dao";
 import { ChildChain, DefiPools, LivingRelicsGrid, CrossChainBridge, DefiRiskScore, DefiStats } from "@/components/defi/pools-relics-bridge";
 import { TesseractCore } from "@/components/hybrid/tesseract-core";
 import { CasinoWidget } from "@/components/casino/casino-widget";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 import { usePlatformStore } from "@/store/platform";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export default function DashboardPage() {
       <div className="col-span-12 space-y-3 lg:col-span-3">
         <TesseractCore />
         <CasinoWidget />
+        <UnthinkablePanel dapp="dashboard" action="hybrid-pulse" />
       </div>
 
       <div className={cn(

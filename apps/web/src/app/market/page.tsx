@@ -6,6 +6,7 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function MarketPage() {
   const qc = useQueryClient();
@@ -50,11 +51,14 @@ export default function MarketPage() {
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold neon-text-cyan">TessMarket</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <UnthinkablePanel dapp="market" action="barter-paradox" compact />
           <button onClick={() => setShowBarter(!showBarter)} className="btn-primary bg-[rgba(138,43,226,0.2)] text-[var(--accent-violet)]">Barter</button>
           <button onClick={() => setShowCreate(!showCreate)} className="btn-primary btn-cefi">+ List Item</button>
         </div>
       </div>
+
+      <UnthinkablePanel dapp="market" action="soul-commerce" />
 
       {showCreate && (
         <GlassPanel title="Create Listing">

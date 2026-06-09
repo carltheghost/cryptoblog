@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.rfsam import generate_server_seed, hash_server_seed
 from core.models import (
     CasinoWallet,
+    OmniverseState,
     CefiAccount,
     CustodyAllocation,
     DaoProposal,
@@ -65,6 +66,7 @@ async def seed_database(session: AsyncSession) -> None:
             batch_queue=[],
         )
     )
+    session.add(OmniverseState(user_id=user.id, dimension=3, quantum_superposition=True, hive_sync_percent=67.3, soul_resonance=41.0))
     seed = generate_server_seed()
     session.add(
         CasinoWallet(

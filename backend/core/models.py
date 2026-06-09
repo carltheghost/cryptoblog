@@ -267,6 +267,34 @@ class CasinoBet(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class OmniverseState(Base):
+    __tablename__ = "omniverse_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    dimension: Mapped[int] = mapped_column(Integer, default=3)
+    overdrive_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    quantum_superposition: Mapped[bool] = mapped_column(Boolean, default=True)
+    paradox_count: Mapped[int] = mapped_column(Integer, default=0)
+    hive_sync_percent: Mapped[float] = mapped_column(Float, default=42.0)
+    soul_resonance: Mapped[float] = mapped_column(Float, default=28.0)
+    chrono_depth: Mapped[int] = mapped_column(Integer, default=0)
+    omega_tier: Mapped[str] = mapped_column(String(16), default="OMEGA-7")
+
+
+class ParadoxBranch(Base):
+    __tablename__ = "paradox_branches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    source_dapp: Mapped[str] = mapped_column(String(32))
+    action: Mapped[str] = mapped_column(String(64))
+    amount: Mapped[float] = mapped_column(Float, default=0.0)
+    branches_json: Mapped[dict] = mapped_column(JSON)
+    collapsed_branch: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class BridgeTransaction(Base):
     __tablename__ = "bridge_transactions"
 

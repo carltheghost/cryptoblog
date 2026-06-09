@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { formatUsd } from "@/lib/utils";
 import { usePlatformStore } from "@/store/platform";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function AssetsPage() {
   const { tessId } = usePlatformStore();
@@ -22,7 +23,11 @@ export default function AssetsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
-      <h1 className="text-xl font-bold neon-text-cyan">Assets</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold neon-text-cyan">Assets</h1>
+        <UnthinkablePanel dapp="assets" action="quantum-portfolio" compact />
+      </div>
+      <UnthinkablePanel dapp="assets" action="superposition-holdings" />
 
       <GlassPanel title="Total Portfolio Value" variant="gold">
         <p className="font-mono text-3xl font-bold text-[var(--accent-gold)]">{formatUsd(total)}</p>

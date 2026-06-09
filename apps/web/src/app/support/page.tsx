@@ -6,6 +6,7 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function SupportPage() {
   const [subject, setSubject] = useState("");
@@ -27,6 +28,7 @@ export default function SupportPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 animate-fade-in">
       <h1 className="text-xl font-bold neon-text-cyan">Support</h1>
+      <UnthinkablePanel dapp="support" action="paradox-ticket" />
       <GlassPanel title="Open a Ticket">
         <div className="space-y-3 text-sm">
           <input value={subject} onChange={(e) => setSubject(e.target.value)} className="input-field" placeholder="Subject" />

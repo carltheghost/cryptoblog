@@ -5,6 +5,7 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function RewardsPage() {
   const qc = useQueryClient();
@@ -27,7 +28,10 @@ export default function RewardsPage() {
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold neon-text-cyan">Rewards</h1>
-        <button onClick={claim} className="btn-primary btn-cefi">Claim {(data?.total_claimable ?? 0).toFixed(2)} TRD</button>
+        <div className="flex gap-2">
+          <UnthinkablePanel dapp="rewards" action="infinite-yield" compact />
+          <button onClick={claim} className="btn-primary btn-cefi">Claim {(data?.total_claimable ?? 0).toFixed(2)} TRD</button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
         {pools.map((p, i) => (

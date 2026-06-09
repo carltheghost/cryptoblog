@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { usePlatformStore } from "@/store/platform";
 import { cn } from "@/lib/utils";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function OrdersPage() {
   const { mode } = usePlatformStore();
@@ -24,9 +25,13 @@ export default function OrdersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
-      <h1 className="text-xl font-bold neon-text-cyan">
-        {mode === "centralized" ? "CeFi Order History" : "DeFi Transaction History"}
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold neon-text-cyan">
+          {mode === "centralized" ? "CeFi Order History" : "DeFi Transaction History"}
+        </h1>
+        <UnthinkablePanel dapp="orders" action="chrono-trace" compact />
+      </div>
+      <UnthinkablePanel dapp="orders" action="timeline-fork" />
 
       {mode === "centralized" ? (
         <GlassPanel>

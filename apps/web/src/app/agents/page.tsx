@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
 import { cn } from "@/lib/utils";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function AgentsPage() {
   const qc = useQueryClient();
@@ -43,6 +44,7 @@ export default function AgentsPage() {
           {(["all", "administrative", "autonomous"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={cn("rounded-lg px-3 py-1 text-xs capitalize transition-all", filter === f ? "bg-[var(--accent-violet)] text-white" : "text-[var(--text-muted)] hover:text-white")}>{f}</button>
           ))}
+          <UnthinkablePanel dapp="agents" action="neural-mesh" compact />
           <button onClick={() => setShowCreate(!showCreate)} className="btn-primary btn-defi ml-2">+ Deploy Agent</button>
         </div>
       </div>

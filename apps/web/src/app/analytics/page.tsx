@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function AnalyticsPage() {
   const { data: graph, isLoading: gLoading } = useQuery({ queryKey: queryKeys.tesslink, queryFn: () => api.storage.tesslink() });
@@ -14,7 +15,11 @@ export default function AnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
-      <h1 className="text-xl font-bold neon-text-cyan">Analytics & Tessalink</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold neon-text-cyan">Analytics & Tessalink</h1>
+        <UnthinkablePanel dapp="analytics" action="hive-predict" compact />
+      </div>
+      <UnthinkablePanel dapp="analytics" action="omniscient-view" />
 
       <div className="grid grid-cols-2 gap-4">
         <GlassPanel title="Tessalink Hypergraph">

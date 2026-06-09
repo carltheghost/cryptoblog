@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { usePlatformStore } from "@/store/platform";
 import { toastAction } from "@/hooks/use-toast-action";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 interface Prefs {
   kyc_visible: boolean;
@@ -43,6 +44,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 animate-fade-in">
       <h1 className="text-xl font-bold neon-text-cyan">Settings</h1>
+      <UnthinkablePanel dapp="settings" action="reality-config" />
 
       <GlassPanel title="TessID & Attestations">
         <p className="font-mono text-sm text-[var(--accent-cyan)]">{data?.tess_id as string}</p>

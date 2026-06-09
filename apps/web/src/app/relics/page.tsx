@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
 import { cn } from "@/lib/utils";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 export default function RelicsPage() {
   const qc = useQueryClient();
@@ -52,7 +53,10 @@ export default function RelicsPage() {
     <div className="mx-auto max-w-5xl space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold neon-text-violet">Living Relics Studio</h1>
-        <button onClick={() => setShowMint(!showMint)} className="btn-primary btn-defi">+ Capture Relic</button>
+        <div className="flex gap-2">
+          <UnthinkablePanel dapp="relics" action="soul-bind" compact />
+          <button onClick={() => setShowMint(!showMint)} className="btn-primary btn-defi">+ Capture Relic</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-2 text-center text-[10px]">

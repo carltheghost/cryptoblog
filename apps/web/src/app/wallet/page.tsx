@@ -10,6 +10,7 @@ import { TesseractCore } from "@/components/hybrid/tesseract-core";
 import { QuarkWalletPro } from "@/components/wallet/quark-wallet-pro";
 import Link from "next/link";
 import { Dices } from "lucide-react";
+import { UnthinkablePanel, OmniExecuteBar } from "@/components/omniverse/unthinkable-panel";
 import { cn } from "@/lib/utils";
 import { toastAction } from "@/hooks/use-toast-action";
 import { api, queryKeys } from "@/lib/api";
@@ -85,9 +86,11 @@ export default function WalletPage() {
         </div>
       </div>
 
+      <UnthinkablePanel dapp="wallet" action="quantum-vault" />
       {mode === "simple" ? (
         <div className="space-y-4">
           <QuarkWalletPro />
+          <OmniExecuteBar dapps={["wallet", "cefi", "defi", "casino"]} />
           <div className="grid grid-cols-2 gap-4">
             <TesseractCore />
             <div className="space-y-4">

@@ -10,6 +10,7 @@ import { RfsamProof } from "@/components/casino/rfsam-proof";
 import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
 import { cn } from "@/lib/utils";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 import type { CasinoGame } from "@/lib/casino-games";
 
 interface BetResult {
@@ -119,6 +120,7 @@ export function GameShell({
           )}
 
           {result?.proof && <RfsamProof proof={result.proof} betId={result.bet_id} />}
+          <UnthinkablePanel dapp="casino" action={`game-${game.id}`} compact />
         </div>
       </div>
     </div>

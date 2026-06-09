@@ -145,6 +145,26 @@ export const api = {
     verifyProof: (betId: number) => fetchApi<{ valid: boolean }>("/api/casino/rfsam/verify", { method: "POST", body: JSON.stringify({ bet_id: betId }) }),
     rotateSeed: () => fetchApi("/api/casino/rfsam/rotate-seed", { method: "POST" }),
   },
+  omniverse: {
+    status: () => fetchApi<{
+      dimension: number; overdrive: boolean; quantum_locked: boolean; paradox_count: number;
+      hive_sync_percent: number; soul_resonance: number; impossibility_index: number; reality_stability: number;
+    }>("/api/omniverse/status"),
+    overdrive: () => fetchApi<{ overdrive: boolean; message: string }>("/api/omniverse/overdrive", { method: "POST" }),
+    setDimension: (dimension: number) => fetchApi("/api/omniverse/dimension", { method: "POST", body: JSON.stringify({ dimension }) }),
+    paradox: (data: { source_dapp: string; action: string; amount?: number; branches?: number }) =>
+      fetchApi("/api/omniverse/paradox/branch", { method: "POST", body: JSON.stringify(data) }),
+    chrono: () => fetchApi<{ events: { t: string; dapp: string; type: string; label: string; amount: number; rewindable: boolean }[]; depth: number }>("/api/omniverse/chrono/timeline"),
+    rewind: () => fetchApi("/api/omniverse/chrono/rewind", { method: "POST", body: JSON.stringify({}) }),
+    quantum: () => fetchApi<{ superposed: boolean; states: { realm: string; value: number; alt_low: number; alt_high: number }[] }>("/api/omniverse/quantum/superposition"),
+    collapse: (observe: string) => fetchApi("/api/omniverse/quantum/collapse", { method: "POST", body: JSON.stringify({ observe }) }),
+    entangle: () => fetchApi("/api/omniverse/quantum/entangle", { method: "POST" }),
+    hive: () => fetchApi<{ collective_intelligence: number; nodes_online: number; consensus_latency_ms: number; shared_predictions: { asset: string; direction: string; confidence: number }[]; tagline: string }>("/api/omniverse/hive/mind"),
+    resonance: (target: string) => fetchApi("/api/omniverse/resonance/sync", { method: "POST", body: JSON.stringify({ target }) }),
+    omniExecute: (data: { actions: { dapp: string; action: string }[]; dimension: number }) =>
+      fetchApi("/api/omniverse/omni/execute", { method: "POST", body: JSON.stringify(data) }),
+    omega: () => fetchApi<{ tier: string; digest: string; algorithm: string; unreachable: boolean; attestations: string[] }>("/api/omniverse/omega/proof"),
+  },
 };
 
 export const queryKeys = {
@@ -175,4 +195,9 @@ export const queryKeys = {
   casinoHistory: ["casino", "history"],
   casinoFeed: ["casino", "feed"],
   casinoLeaderboard: ["casino", "leaderboard"],
+  omniverseStatus: ["omniverse", "status"],
+  chronoTimeline: ["omniverse", "chrono"],
+  quantumState: ["omniverse", "quantum"],
+  hiveMind: ["omniverse", "hive"],
+  omegaProof: ["omniverse", "omega"],
 };

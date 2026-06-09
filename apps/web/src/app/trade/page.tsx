@@ -6,6 +6,7 @@ import { DexSwap } from "@/components/defi/wallet-swap";
 import { DefiPools } from "@/components/defi/pools-relics-bridge";
 import { usePlatformStore } from "@/store/platform";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
 
 function PoolDepth() {
   return (
@@ -26,7 +27,11 @@ export default function TradePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 animate-fade-in">
-      <h1 className="text-xl font-bold neon-text-cyan">TessExchange</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold neon-text-cyan">TessExchange</h1>
+        <UnthinkablePanel dapp="trade" action="paradox-order" compact />
+      </div>
+      <UnthinkablePanel dapp="trade" action="temporal-arbitrage" />
       {mode === "centralized" ? (
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2"><SpotTrading /></div>

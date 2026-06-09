@@ -17,12 +17,14 @@ import {
   Gem,
   Bot,
   Dices,
+  Infinity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/trade", icon: TrendingUp, label: "Trade" },
+  { href: "/omniverse", icon: Infinity, label: "Omniverse" },
   { href: "/casino", icon: Dices, label: "Casino" },
   { href: "/wallet", icon: Wallet, label: "Quark Wallet" },
   { href: "/market", icon: ArrowLeftRight, label: "TessMarket" },
