@@ -308,14 +308,24 @@ body {
 
 /* ─── OMNIVERSE DIMENSION LAYERS ─── */
 .omniverse-layer { position: relative; }
-.dim-1 .glass-panel { transform: none; filter: grayscale(0.3); }
+.omniverse-main { transition: filter 0.7s ease, transform 0.7s ease; transform-style: preserve-3d; }
+.dim-1 .glass-panel, .dim-1 .omniverse-main { filter: grayscale(0.35) contrast(0.95); }
 .dim-2 .glass-panel { transform: perspective(800px) rotateX(1deg); }
+.dim-2 .omniverse-main { perspective: 1200px; }
 .dim-3 .glass-panel { transform: perspective(600px) rotateY(0.5deg); transform-style: preserve-3d; }
 .dim-4 .glass-panel { transform: perspective(500px) rotateX(2deg) rotateY(-1deg); box-shadow: 0 0 20px rgba(138,43,226,0.15); }
+.dim-4 .omniverse-main { filter: saturate(1.1); }
 .dim-5 .glass-panel, .dim-99 .glass-panel {
   transform: perspective(400px) rotateX(3deg);
   box-shadow: 0 0 30px rgba(0,242,255,0.2), 0 0 60px rgba(138,43,226,0.1);
   animation: dim-5-float 6s ease-in-out infinite;
+}
+.dim-5 .omniverse-main, .dim-99 .omniverse-main {
+  animation: dim-main-breathe 8s ease-in-out infinite;
+}
+@keyframes dim-main-breathe {
+  0%, 100% { filter: brightness(1) saturate(1.05); }
+  50% { filter: brightness(1.08) saturate(1.2) hue-rotate(5deg); }
 }
 @keyframes dim-5-float {
   0%, 100% { transform: perspective(400px) rotateX(3deg) translateY(0); }

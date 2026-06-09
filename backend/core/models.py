@@ -291,7 +291,7 @@ class ParadoxBranch(Base):
     action: Mapped[str] = mapped_column(String(64))
     amount: Mapped[float] = mapped_column(Float, default=0.0)
     branches_json: Mapped[dict] = mapped_column(JSON)
-    collapsed_branch: Mapped[str] = mapped_column(String(32))
+    collapsed_branch: Mapped[Optional[str]] = mapped_column(String(32), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

@@ -153,16 +153,29 @@ export const api = {
     overdrive: () => fetchApi<{ overdrive: boolean; message: string }>("/api/omniverse/overdrive", { method: "POST" }),
     setDimension: (dimension: number) => fetchApi("/api/omniverse/dimension", { method: "POST", body: JSON.stringify({ dimension }) }),
     paradox: (data: { source_dapp: string; action: string; amount?: number; branches?: number }) =>
-      fetchApi("/api/omniverse/paradox/branch", { method: "POST", body: JSON.stringify(data) }),
-    chrono: () => fetchApi<{ events: { t: string; dapp: string; type: string; label: string; amount: number; rewindable: boolean }[]; depth: number }>("/api/omniverse/chrono/timeline"),
-    rewind: () => fetchApi("/api/omniverse/chrono/rewind", { method: "POST", body: JSON.stringify({}) }),
+      fetchApi<{ paradox_id: number; branches: { branch_id: string; timeline: string; outcome: number; probability: number; status: string }[]; proof_hash: string }>(
+        "/api/omniverse/paradox/branch", { method: "POST", body: JSON.stringify(data) }
+      ),
+    paradoxList: () =>
+      fetchApi<{ paradoxes: { id: number; source_dapp: string; action: string; amount: number; branches: { branch_id: string; timeline: string; probability: number; outcome: number; status: string }[]; collapsed: boolean; collapsed_branch: string | null }[] }>(
+        "/api/omniverse/paradox/list"
+      ),
+    paradoxCollapse: (data: { paradox_id: number; branch_id: string }) =>
+      fetchApi<{ collapsed: { timeline: string; outcome: number }; realm_applied: string; message: string }>(
+        "/api/omniverse/paradox/collapse", { method: "POST", body: JSON.stringify(data) }
+      ),
+    chrono: () => fetchApi<{ events: { id: number; t: string; dapp: string; type: string; label: string; amount: number; rewindable: boolean }[]; depth: number; can_rewind: number }>("/api/omniverse/chrono/timeline"),
+    rewind: (data?: { event_id?: number; event_type?: string; dapp?: string }) =>
+      fetchApi("/api/omniverse/chrono/rewind", { method: "POST", body: JSON.stringify(data || {}) }),
     quantum: () => fetchApi<{ superposed: boolean; states: { realm: string; value: number; alt_low: number; alt_high: number }[] }>("/api/omniverse/quantum/superposition"),
     collapse: (observe: string) => fetchApi("/api/omniverse/quantum/collapse", { method: "POST", body: JSON.stringify({ observe }) }),
     entangle: () => fetchApi("/api/omniverse/quantum/entangle", { method: "POST" }),
     hive: () => fetchApi<{ collective_intelligence: number; nodes_online: number; consensus_latency_ms: number; shared_predictions: { asset: string; direction: string; confidence: number }[]; tagline: string }>("/api/omniverse/hive/mind"),
     resonance: (target: string) => fetchApi("/api/omniverse/resonance/sync", { method: "POST", body: JSON.stringify({ target }) }),
-    omniExecute: (data: { actions: { dapp: string; action: string }[]; dimension: number }) =>
-      fetchApi("/api/omniverse/omni/execute", { method: "POST", body: JSON.stringify(data) }),
+    omniExecute: (data: { actions: { dapp: string; action: string; params?: Record<string, unknown> }[]; dimension: number }) =>
+      fetchApi<{ actions_executed: number; results: { dapp: string; action: string; status: string; detail?: string; tx?: string }[]; omega_fragment: string }>(
+        "/api/omniverse/omni/execute", { method: "POST", body: JSON.stringify(data) }
+      ),
     omega: () => fetchApi<{ tier: string; digest: string; algorithm: string; unreachable: boolean; attestations: string[] }>("/api/omniverse/omega/proof"),
   },
 };
@@ -196,6 +209,7 @@ export const queryKeys = {
   casinoFeed: ["casino", "feed"],
   casinoLeaderboard: ["casino", "leaderboard"],
   omniverseStatus: ["omniverse", "status"],
+  paradoxList: ["omniverse", "paradox"],
   chronoTimeline: ["omniverse", "chrono"],
   quantumState: ["omniverse", "quantum"],
   hiveMind: ["omniverse", "hive"],

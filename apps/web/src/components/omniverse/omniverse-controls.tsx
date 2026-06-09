@@ -25,6 +25,7 @@ export function DimensionShift() {
       {DIMS.map((d) => (
         <button
           key={d}
+          title={DIMENSION_LABELS[d]}
           onClick={() => shift(d)}
           className={cn(
             "rounded px-1.5 py-0.5 text-[9px] font-bold transition-all",
@@ -62,6 +63,7 @@ export function TessOverdrive() {
   return (
     <button
       onClick={toggle}
+      title={active ? "Reality constraints dissolved" : "Engage Tess Overdrive"}
       className={cn(
         "flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-black transition-all",
         active
@@ -70,7 +72,7 @@ export function TessOverdrive() {
       )}
     >
       <Zap className="h-3 w-3" />
-      {active ? "OVERDRIVE" : "OVERDRIVE"}
+      {active ? "OVERDRIVE ON" : "OVERDRIVE"}
     </button>
   );
 }

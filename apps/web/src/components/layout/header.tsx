@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
 import { DimensionShift, TessOverdrive, QuantumToggle } from "@/components/omniverse/omniverse-controls";
+import { OmniverseHud } from "@/components/omniverse/omniverse-hud";
+import { ParadoxExplorerTrigger } from "@/components/omniverse/paradox-explorer";
 import { usePlatformStore } from "@/store/platform";
 import { api, queryKeys } from "@/lib/api";
 
@@ -29,10 +31,12 @@ export function Header() {
           </p>
         </div>
       </div>
+      <OmniverseHud />
       <div className="flex items-center gap-2">
         <DimensionShift />
         <QuantumToggle />
         <TessOverdrive />
+        <ParadoxExplorerTrigger />
         <Link href="/omniverse" className="rounded border border-[var(--accent-gold)] px-2 py-1 text-[9px] font-black text-[var(--accent-gold)] hover:bg-[rgba(255,215,0,0.1)]">
           ◈ OMNI
         </Link>

@@ -20,6 +20,7 @@ export default function OmniversePage() {
   const { data: hive } = useQuery({ queryKey: queryKeys.hiveMind, queryFn: () => api.omniverse.hive() });
   const { data: omega } = useQuery({ queryKey: queryKeys.omegaProof, queryFn: () => api.omniverse.omega() });
   const { data: chrono } = useQuery({ queryKey: queryKeys.chronoTimeline, queryFn: () => api.omniverse.chrono() });
+  const { data: paradoxes } = useQuery({ queryKey: queryKeys.paradoxList, queryFn: () => api.omniverse.paradoxList() });
 
   const entangle = () => toastAction(() => api.omniverse.entangle(), { success: "Quantum entanglement active" }).then(() => qc.invalidateQueries({ queryKey: queryKeys.quantumState }));
 
@@ -110,13 +111,27 @@ export default function OmniversePage() {
 
         <GlassPanel title="Chrono Ledger">
           <div className="max-h-40 space-y-1 overflow-y-auto scrollbar-thin text-[9px]">
-            {(chrono?.events || []).map((e, i) => (
-              <div key={i} className="flex justify-between rounded bg-[rgba(0,0,0,0.2)] px-2 py-1">
+            {(chrono?.events || []).map((e) => (
+              <div key={`${e.dapp}-${e.id}`} className="flex justify-between rounded bg-[rgba(0,0,0,0.2)] px-2 py-1">
                 <span className="text-[var(--accent-cyan)]">{e.dapp}</span>
                 <span>{e.label}</span>
-                {e.rewindable && <span className="text-[var(--accent-gold)]">↩</span>}
+                {e.rewindable && <span className="text-[var(--accent-gold)]">↩ click ribbon</span>}
               </div>
             ))}
+          </div>
+        </GlassPanel>
+
+        <GlassPanel title="Active Paradoxes" variant="gold" className="col-span-2">
+          <div className="max-h-32 space-y-1 overflow-y-auto text-[9px]">
+            {(paradoxes?.paradoxes || []).filter((p) => !p.collapsed).map((p) => (
+              <div key={p.id} className="flex justify-between rounded bg-[rgba(255,68,102,0.1)] px-2 py-1">
+                <span>{p.source_dapp}/{p.action}</span>
+                <span className="text-[var(--accent-red)]">{p.branches.length} timelines superposed</span>
+              </div>
+            ))}
+            {(paradoxes?.paradoxes || []).filter((p) => !p.collapsed).length === 0 && (
+              <p className="text-[var(--text-muted)]">All timelines collapsed — spawn new branches from any DApp</p>
+            )}
           </div>
         </GlassPanel>
       </div>

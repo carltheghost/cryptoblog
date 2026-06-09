@@ -11,6 +11,7 @@ import { api, queryKeys } from "@/lib/api";
 import { toastAction } from "@/hooks/use-toast-action";
 import { cn } from "@/lib/utils";
 import { UnthinkablePanel } from "@/components/omniverse/unthinkable-panel";
+import { useOmniverseStore, DIMENSION_LABELS } from "@/store/omniverse";
 import type { CasinoGame } from "@/lib/casino-games";
 
 interface BetResult {
@@ -39,7 +40,9 @@ export function GameShell({
   extraControls?: React.ReactNode;
 }) {
   const qc = useQueryClient();
+  const { dimension, overdrive } = useOmniverseStore();
   const [amount, setAmount] = useState(String(game.min_bet));
+  const dimBoost = dimension >= 5 ? 1.15 : dimension === 99 ? 1.25 : 1;
   const [currency, setCurrency] = useState<"MGANGA" | "MWANJESA">("MGANGA");
   const [playing, setPlaying] = useState(false);
   const [result, setResult] = useState<BetResult | null>(null);
@@ -62,6 +65,7 @@ export function GameShell({
       qc.invalidateQueries({ queryKey: queryKeys.casinoWallet });
       qc.invalidateQueries({ queryKey: queryKeys.casinoHistory });
       qc.invalidateQueries({ queryKey: queryKeys.casinoFeed });
+      qc.invalidateQueries({ queryKey: queryKeys.chronoTimeline });
     }
     setPlaying(false);
   };
@@ -74,13 +78,16 @@ export function GameShell({
         <Link href="/casino" className="flex items-center gap-2 text-xs text-[var(--text-muted)] hover:text-[var(--accent-cyan)]">
           <ArrowLeft className="h-4 w-4" /> Casino Lobby
         </Link>
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", game.dimension === "4D" ? "bg-[var(--accent-gold)]/20 text-[var(--accent-gold)]" : "bg-[var(--accent-violet)]/20 text-[var(--accent-violet)]")}>
-          {game.dimension} VIEW
+        <span className={cn(
+          "rounded-full px-2 py-0.5 text-[10px] font-bold",
+          dimension >= 5 || overdrive ? "bg-[var(--accent-gold)]/20 text-[var(--accent-gold)] animate-pulse" : "bg-[var(--accent-violet)]/20 text-[var(--accent-violet)]"
+        )}>
+          {DIMENSION_LABELS[dimension]} · {dimBoost > 1 ? `+${((dimBoost - 1) * 100).toFixed(0)}% odds weave` : game.dimension}
         </span>
       </div>
 
       <div className="flex items-center gap-4">
-        <Hypercube4D size={64} active={playing} />
+        <Hypercube4D size={dimension >= 5 ? 80 : 64} active={playing || overdrive} />
         <div>
           <h1 className="text-2xl font-bold neon-text-cyan">{game.emoji} {game.name}</h1>
           <p className="text-xs text-[var(--text-muted)]">{game.description} · Max {game.max_multiplier}x</p>
@@ -89,7 +96,7 @@ export function GameShell({
 
       <div className="grid grid-cols-3 gap-4">
         <GlassPanel className="col-span-2 min-h-[280px] flex items-center justify-center overflow-hidden" variant={game.dimension === "4D" ? "gold" : "violet"}>
-          <div className={cn("w-full transition-all", playing && "game-playing-pulse")}>
+          <div className={cn("w-full transition-all", playing && "game-playing-pulse", dimension === 99 && "dim-infinite", overdrive && "overdrive-active")}>
             {childContent}
           </div>
         </GlassPanel>

@@ -9,6 +9,7 @@ import { api, queryKeys } from "@/lib/api";
 import { formatUsd } from "@/lib/utils";
 import { toastAction } from "@/hooks/use-toast-action";
 import { toast } from "sonner";
+import { QuantumBalance } from "@/components/omniverse/quantum-overlay";
 
 export function TesseractCore() {
   const qc = useQueryClient();
@@ -76,11 +77,15 @@ export function TesseractCore() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-lg bg-[rgba(0,242,255,0.08)] p-2 transition-all hover:bg-[rgba(0,242,255,0.12)]">
             <p className="text-[var(--text-muted)]">CeFi Balance</p>
-            <p className="font-mono font-bold text-[var(--accent-cyan)]">{formatUsd(balances?.cefi_balance ?? 0)}</p>
+            <p className="font-bold text-[var(--accent-cyan)]">
+              <QuantumBalance realm="cefi" value={balances?.cefi_balance ?? 0} />
+            </p>
           </div>
           <div className="rounded-lg bg-[rgba(138,43,226,0.08)] p-2 transition-all hover:bg-[rgba(138,43,226,0.12)]">
             <p className="text-[var(--text-muted)]">DeFi Balance</p>
-            <p className="font-mono font-bold text-[var(--accent-violet)]">{formatUsd(balances?.defi_balance ?? 0)}</p>
+            <p className="font-bold text-[var(--accent-violet)]">
+              <QuantumBalance realm="defi" value={balances?.defi_balance ?? 0} />
+            </p>
           </div>
         </div>
 
