@@ -62,15 +62,6 @@ def parse(text: str) -> dict:
         return {"cmd": "quit"}
     if t in ("help", "?") or "what can you" in t or "how do i" in t:
         return {"cmd": "help"}
-    if any(w in t for w in ("status", "how am i", "how are we", "p&l", "pnl",
-                            "balance", "doing", "positions")):
-        return {"cmd": "status"}
-    if any(w in t for w in ("compare", "rank", "which is best", "best strategy",
-                            "leaderboard", "best", "winner")):
-        return {"cmd": "compare"}
-    if any(w in t for w in ("dashboard", "web ui", "webui", "open ui", "browser",
-                            "neural deck")):
-        return {"cmd": "dashboard"}
     if any(w in t for w in ("backtest", "back test", "simulate", "sim test", "run a test")):
         intent = {"cmd": "backtest"}
         for name in STRATEGIES:
@@ -81,6 +72,16 @@ def parse(text: str) -> dict:
         if m:
             intent["edge"] = float(m.group(1))
         return intent
+    if any(w in t for w in ("compare", "rank", "which is best", "best strategy",
+                            "leaderboard", "best", "winner")):
+        return {"cmd": "compare"}
+    if any(w in t for w in ("dashboard", "web ui", "webui", "open ui", "browser",
+                            "neural deck")):
+        return {"cmd": "dashboard"}
+    # status: note \bbalance\b so it does not fire on "im-balance"
+    if any(w in t for w in ("status", "how am i", "how are we", "p&l", "pnl",
+                            "doing", "positions")) or re.search(r"\bbalance\b", t):
+        return {"cmd": "status"}
     if any(w in t for w in ("reset", "clear", "start over")):
         return {"cmd": "reset"}
     if any(w in t for w in ("stop", "pause", "halt", "freeze")):
