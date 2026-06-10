@@ -68,7 +68,25 @@ python -m kalshibot.run_paper --series KXBTC --minutes 30
 
 # 3) Web dashboard — neural-network style control deck at http://localhost:8765
 python -m kalshibot.webui
+
+# 4) Personal assistant — talk to the bot in plain English on your PC:
+python -m kalshibot.assistant
 ```
+
+### Personal assistant (`kalshibot.assistant`)
+
+A local, natural-language control deck. Say things like *"start the spread
+strategy"*, *"how am I doing?"*, *"run a backtest of chronos at edge 0.5"*,
+*"which strategy is best?"*, *"open the dashboard"*. It runs **fully offline with
+zero setup** via a deterministic command understander, and **auto-upgrades to
+real conversational replies** if it detects either:
+
+- a local **Ollama** server at `http://localhost:11434` (fully offline LLM), or
+- an **`ANTHROPIC_API_KEY`** in your environment (uses the Claude API).
+
+With no LLM it's a fast natural-language *command* assistant, not a chatbot — and
+it controls the same in-process sim engine. Paper/sim only: it never places real
+orders.
 
 ### Web dashboard (`kalshibot.webui`)
 
@@ -95,6 +113,8 @@ Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 | `kalshi_client.py` | Read-only market-data client. `place_order` is disabled. |
 | `backtest.py` | Offline simulation of many 15-min markets with realistic vol. |
 | `run_paper.py` | Live paper loop against real prices. |
+| `assistant.py` | Local plain-English assistant (optional Ollama/Claude LLM). |
+| `webui/` | Localhost neural-deck dashboard (engine + stdlib server + canvas UI). |
 
 ## Secrets
 
