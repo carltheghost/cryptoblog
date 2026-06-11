@@ -27,6 +27,7 @@ import sys
 from .webui.engine import SimEngine
 from .strategy import STRATEGIES
 from . import backtest as bt
+from . import multiagent as ma
 
 PARAM_ALIASES = {
     "entry velocity": "entry_velocity", "velocity": "entry_velocity",
@@ -46,6 +47,8 @@ HELP = """I'm your local kalshibot assistant. Things you can say:
   how am I doing? / status             - live P&L, fees, trades, positions
   backtest <strategy> [edge <0..1>]    - run an offline backtest
   compare / which is best              - rank all strategies
+  spawn <N> agents [edge <0..1>]       - run a multi-agent arena + leaderboard
+  models                               - list your local Ollama models
   dashboard                            - open the web UI in your browser
   help                                 - this message
   quit                                 - leave
@@ -62,6 +65,18 @@ def parse(text: str) -> dict:
         return {"cmd": "quit"}
     if t in ("help", "?") or "what can you" in t or "how do i" in t:
         return {"cmd": "help"}
+    if "model" in t and any(w in t for w in ("list", "models", "which", "available", "show")):
+        return {"cmd": "models"}
+    if any(w in t for w in ("arena", "multiple agent", "more agent", "spawn",
+                            "team", "agents", "ensemble", "army")):
+        intent = {"cmd": "arena"}
+        m = re.search(r"([0-9]+)\s*agent", t) or re.search(r"agents?\s*([0-9]+)", t)
+        if m:
+            intent["n"] = int(m.group(1))
+        m2 = re.search(r"edge\s*(?:of|=|:)?\s*([0-9]*\.?[0-9]+)", t)
+        if m2:
+            intent["edge"] = float(m2.group(1))
+        return intent
     if any(w in t for w in ("backtest", "back test", "simulate", "sim test", "run a test")):
         intent = {"cmd": "backtest"}
         for name in STRATEGIES:
@@ -218,6 +233,26 @@ class Assistant:
                              f"{r['avg_trades']:>4.1f} trades/mkt  ${r['fees']:.0f} fees")
             lines.append("Lesson holds: the strategy that trades least loses least.")
             return "\n".join(lines), True
+
+        if cmd == "models":
+            try:
+                import urllib.request
+                with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=2) as r:
+                    tags = json.loads(r.read()).get("models", [])
+                if not tags:
+                    return "Ollama is running but has no models. Try: ollama pull llama3.2", True
+                names = ", ".join(m.get("name", "?") for m in tags)
+                return (f"Local Ollama models: {names}. "
+                        f"Set OLLAMA_MODEL=<name> to pick one for chat.", True)
+            except Exception:
+                return ("No local Ollama detected at http://localhost:11434. "
+                        "Start it with `ollama serve` and pull a model, e.g. `ollama pull llama3.2`.", True)
+
+        if cmd == "arena":
+            n = intent.get("n", 8)
+            edge = intent.get("edge", 0.0)
+            results = ma.run_arena(n_agents=n, n_markets=60, signal_edge=edge)
+            return ma.format_leaderboard(results, 60, edge), True
 
         # unknown -> let the optional LLM help, else nudge to help
         if self.backend != "none":

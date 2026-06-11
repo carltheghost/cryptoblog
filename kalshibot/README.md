@@ -71,7 +71,20 @@ python -m kalshibot.webui
 
 # 4) Personal assistant — talk to the bot in plain English on your PC:
 python -m kalshibot.assistant
+
+# 5) Multi-agent arena — many strategies compete on paper, with a leaderboard:
+python -m kalshibot.multiagent --agents 11 --markets 60
 ```
+
+### Multi-agent arena (`kalshibot.multiagent`)
+
+Spawns many agents — one per strategy plus parameter variants — and runs them on
+the **same** simulated market so they compete fairly, then prints a leaderboard.
+This is the honest take on "more agents = better": more agents help you *discover*
+which approach survives fees; they do **not** multiply a losing bet. In practice
+every agent still loses after costs, and the high-turnover ones lose most — the
+arena just surfaces the least-bad. You can spawn it from the assistant too:
+*"spawn 11 agents"*. Paper/sim only.
 
 ### Personal assistant (`kalshibot.assistant`)
 
@@ -114,6 +127,7 @@ Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 | `backtest.py` | Offline simulation of many 15-min markets with realistic vol. |
 | `run_paper.py` | Live paper loop against real prices. |
 | `assistant.py` | Local plain-English assistant (optional Ollama/Claude LLM). |
+| `multiagent.py` | Multi-agent arena: many strategies compete on paper + leaderboard. |
 | `webui/` | Localhost neural-deck dashboard (engine + stdlib server + canvas UI). |
 
 ## Secrets
