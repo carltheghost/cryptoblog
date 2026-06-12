@@ -40,7 +40,9 @@ PARAM_ALIASES = {
 }
 
 HELP = """I'm your local kalshibot assistant. Things you can say:
-  start / stop / reset                 - run, pause, or reset the agents
+  start / stop / reset                 - run, pause, or reset the SIM agents
+  start trading / collect data         - launch a LIVE paper session + data
+                                         recorder to CSV (real prices, no money)
   use <strategy>                       - momentum | fade | spread | imbalance | chronos
   set <param> to <value>               - entry velocity, take profit, contracts,
                                          spread, speed, signal edge
@@ -67,6 +69,15 @@ def parse(text: str) -> dict:
         return {"cmd": "help"}
     if "model" in t and any(w in t for w in ("list", "models", "which", "available", "show")):
         return {"cmd": "models"}
+    if (any(w in t for w in ("live", "record", "collect data", "gather data",
+                             "real data", "go live", "perpetual", "perp"))
+            or ("start" in t and "trad" in t) or ("paper" in t and "session" in t)):
+        intent = {"cmd": "live"}
+        for name in STRATEGIES:
+            if name in t:
+                intent["strategy"] = name
+                break
+        return intent
     if any(w in t for w in ("arena", "multiple agent", "more agent", "spawn",
                             "team", "agents", "ensemble", "army")):
         intent = {"cmd": "arena"}
@@ -247,6 +258,28 @@ class Assistant:
             except Exception:
                 return ("No local Ollama detected at http://localhost:11434. "
                         "Start it with `ollama serve` and pull a model, e.g. `ollama pull llama3.2`.", True)
+
+        if cmd == "live":
+            strat = intent.get("strategy", self.engine.snapshot()["strategy"])
+            jobs = [
+                [sys.executable, "-m", "kalshibot.run_paper", "--series", "KXBTC",
+                 "--strategy", strat, "--minutes", "120", "--record", "kalshi_ticks.csv"],
+                [sys.executable, "-m", "kalshibot.record", "--series", "KXBTC",
+                 "--minutes", "120", "--out", "kalshi_market.csv"],
+            ]
+            launched = 0
+            for c in jobs:
+                try:
+                    subprocess.Popen(c)
+                    launched += 1
+                except Exception:
+                    pass
+            return (f"Launched a LIVE PAPER session + read-only recorder ({launched}/2), "
+                    "no real money:\n"
+                    f"  paper trades ({strat}) -> kalshi_ticks.csv\n"
+                    "  market data            -> kalshi_market.csv\n"
+                    "On a Kalshi-reachable network they'll collect for 2 hours; otherwise "
+                    "they exit with 403. For perpetuals, tell me the ticker and I'll add it.", True)
 
         if cmd == "arena":
             n = intent.get("n", 8)

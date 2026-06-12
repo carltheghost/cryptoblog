@@ -74,7 +74,22 @@ python -m kalshibot.assistant
 
 # 5) Multi-agent arena — many strategies compete on paper, with a leaderboard:
 python -m kalshibot.multiagent --agents 11 --markets 60
+
+# 6) Record real market data (read-only, no trading) for an edge search:
+python -m kalshibot.record --series KXBTC --minutes 120 --out btc.csv
+# ...or a live paper session that logs every decision tick:
+python -m kalshibot.run_paper --series KXBTC --strategy imbalance --record ticks.csv
 ```
+
+### Data collection (`kalshibot.record` + `run_paper --record`)
+
+`record.py` is a **read-only** recorder: it polls Kalshi market data (quotes,
+last price, volume, open interest, order-book imbalance) and appends a CSV row
+per market per poll. No orders, ever. Point it at the crypto series, or at any
+explicit `--ticker` (e.g. a perpetual contract once you supply its ticker).
+`run_paper --record FILE` additionally logs every paper decision tick. From the
+assistant, just say *"start trading"* or *"collect data"*. Run these on a
+Kalshi-reachable machine — they exit cleanly with a 403 message otherwise.
 
 ### Multi-agent arena (`kalshibot.multiagent`)
 
@@ -125,7 +140,8 @@ Sliders start/pause/reset and tune the strategy in real time. Runs on a built-in
 | `strategy.py` | Five strategies (momentum / fade / spread / imbalance / chronos) + registry. |
 | `kalshi_client.py` | Read-only market-data client. `place_order` is disabled. |
 | `backtest.py` | Offline simulation of many 15-min markets with realistic vol. |
-| `run_paper.py` | Live paper loop against real prices. |
+| `run_paper.py` | Live paper loop against real prices (optional `--record` CSV). |
+| `record.py` | Read-only market-data recorder to CSV (no trading). |
 | `assistant.py` | Local plain-English assistant (optional Ollama/Claude LLM). |
 | `multiagent.py` | Multi-agent arena: many strategies compete on paper + leaderboard. |
 | `webui/` | Localhost neural-deck dashboard (engine + stdlib server + canvas UI). |

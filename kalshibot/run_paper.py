@@ -13,6 +13,7 @@ key is required for paper mode (market data is public).
 from __future__ import annotations
 
 import argparse
+import os
 import time
 
 from .kalshi_client import KalshiClient
@@ -37,10 +38,21 @@ def pick_market(client: KalshiClient, series: str) -> dict | None:
 
 
 def run(series: str, minutes: int, contracts: int, poll: float,
-        strategy: str = "momentum") -> None:
+        strategy: str = "momentum", record_csv: str | None = None) -> None:
     client = KalshiClient()
     acct = PaperAccount(cash=21.0)
     strat = make_strategy(strategy)
+
+    csv_w = csv_f = None
+    if record_csv:
+        import csv as _csv
+        new = not os.path.exists(record_csv)
+        csv_f = open(record_csv, "a", newline="")
+        csv_w = _csv.writer(csv_f)
+        if new:
+            csv_w.writerow(["ts", "ticker", "yes_bid", "yes_ask", "mid", "imbalance",
+                            "velocity", "action", "reason", "cash", "realized_pnl",
+                            "fees", "trades"])
 
     print(f"[paper] connecting to {client.base_url}")
     try:
@@ -98,10 +110,21 @@ def run(series: str, minutes: int, contracts: int, poll: float,
             elif key_no in acct.positions:
                 acct.sell(ticker, "no", acct.positions[key_no].contracts, max(0.01, 1 - yes_ask), sig.reason)
 
+        if csv_w:
+            csv_w.writerow([time.strftime("%Y-%m-%dT%H:%M:%S"), ticker,
+                            f"{yes_bid:.2f}", f"{yes_ask:.2f}", f"{mid:.3f}",
+                            f"{imbalance:.3f}", f"{velocity:.2f}", sig.action,
+                            sig.reason, f"{acct.cash:.2f}", f"{acct.realized_pnl:.2f}",
+                            f"{acct.total_fees_paid:.2f}", len(acct.fills)])
+            csv_f.flush()
+
         print(f"[paper] {ticker} yes {yes_bid:.2f}/{yes_ask:.2f} | {sig.action:11s} "
               f"| {sig.reason:24s} | {acct.summary()}")
         time.sleep(poll)
 
+    if csv_f:
+        csv_f.close()
+        print(f"[paper] recorded ticks -> {record_csv}")
     print("\n[paper] session over.")
     print(f"[paper] FINAL: {acct.summary()}")
 
@@ -113,9 +136,10 @@ def main() -> None:
     ap.add_argument("--contracts", type=int, default=10, help="contracts per trade")
     ap.add_argument("--poll", type=float, default=2.0, help="seconds between polls")
     ap.add_argument("--strategy", default="momentum",
-                    choices=["momentum", "fade", "spread"])
+                    choices=["momentum", "fade", "spread", "imbalance", "chronos"])
+    ap.add_argument("--record", default=None, help="CSV file to log every tick to")
     args = ap.parse_args()
-    run(args.series, args.minutes, args.contracts, args.poll, args.strategy)
+    run(args.series, args.minutes, args.contracts, args.poll, args.strategy, args.record)
 
 
 if __name__ == "__main__":
