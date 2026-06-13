@@ -6,7 +6,14 @@ imbalance. Point it at the short-term crypto series and/or any explicit tickers
 (e.g. a perpetual contract once you give me its ticker).
 
     python -m kalshibot.record --series KXBTC --minutes 120 --out btc.csv
-    python -m kalshibot.record --ticker KXBTCPERP-... --minutes 120 --out perp.csv
+
+Perpetual futures (launched 2026-05-29) are a SEPARATE, leveraged margin product
+with their own API spec and base URL -- not the binary yes/no event markets, so
+the structured CSV columns mostly won't apply. Use --base + --raw to capture them
+schema-agnostically once you have a ticker:
+
+    python -m kalshibot.record --base https://external-api.kalshi.com/trade-api/v2 \
+        --ticker <PERP_TICKER> --raw perp.jsonl --out perp.csv --minutes 120
 
 If Kalshi returns HTTP 403 you're on a blocked network -- run from your own PC.
 This module never places an order.
@@ -16,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import time
 from datetime import datetime, timezone
@@ -51,9 +59,10 @@ def _row(client: KalshiClient, m: dict) -> dict:
     }
 
 
-def record(series: list[str], tickers: list[str], minutes: int, poll: float, out: str):
-    client = KalshiClient()
-    print(f"[record] {client.base_url}  ->  {out}")
+def record(series: list[str], tickers: list[str], minutes: int, poll: float, out: str,
+           base: str | None = None, raw: str | None = None):
+    client = KalshiClient(base_url=base) if base else KalshiClient()
+    print(f"[record] {client.base_url}  ->  {out}" + (f"  (+raw {raw})" if raw else ""))
     try:
         print(f"[record] exchange status: {client.exchange_status()}")
     except Exception as e:
@@ -61,6 +70,7 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
         return
 
     new_file = not os.path.exists(out)
+    raw_f = open(raw, "a") if raw else None
     deadline = time.time() + minutes * 60
     rows = 0
     with open(out, "a", newline="") as f:
@@ -80,13 +90,21 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
                 except Exception as e:
                     print(f"[record] get {tk} failed: {e}")
             for m in markets:
-                if m.get("ticker"):
-                    w.writerow(_row(client, m))
-                    rows += 1
+                if not m.get("ticker"):
+                    continue
+                w.writerow(_row(client, m))
+                rows += 1
+                if raw_f:   # full JSON per market -- schema-agnostic (good for perps)
+                    raw_f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
+                                            "market": m}) + "\n")
             f.flush()
+            if raw_f:
+                raw_f.flush()
             print(f"[record] {datetime.now().strftime('%H:%M:%S')}  "
                   f"markets={len(markets)}  rows_total={rows}")
             time.sleep(poll)
+    if raw_f:
+        raw_f.close()
     print(f"[record] done. {rows} rows -> {out}")
 
 
@@ -99,9 +117,15 @@ def main():
     ap.add_argument("--minutes", type=int, default=120)
     ap.add_argument("--poll", type=float, default=2.0)
     ap.add_argument("--out", default="kalshi_data.csv")
+    ap.add_argument("--base", default=None,
+                    help="override base URL, e.g. https://external-api.kalshi.com/trade-api/v2 "
+                         "for perpetuals")
+    ap.add_argument("--raw", default=None,
+                    help="also dump full market JSON per poll to this .jsonl file "
+                         "(schema-agnostic; use this for perpetuals)")
     args = ap.parse_args()
     series = args.series if args.series is not None else DEFAULT_CRYPTO_SERIES
-    record(series, args.ticker, args.minutes, args.poll, args.out)
+    record(series, args.ticker, args.minutes, args.poll, args.out, args.base, args.raw)
 
 
 if __name__ == "__main__":
