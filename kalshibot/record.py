@@ -28,7 +28,8 @@ import os
 import time
 from datetime import datetime, timezone
 
-from .kalshi_client import KalshiClient, DEFAULT_CRYPTO_SERIES
+from .kalshi_client import (KalshiClient, DEFAULT_CRYPTO_SERIES,
+                            PERP_TICKERS, PERPS_BASE_URL)
 from .run_paper import book_imbalance
 
 FIELDS = ["ts", "ticker", "status", "yes_bid", "yes_ask", "mid", "spread",
@@ -123,9 +124,20 @@ def main():
     ap.add_argument("--raw", default=None,
                     help="also dump full market JSON per poll to this .jsonl file "
                          "(schema-agnostic; use this for perpetuals)")
+    ap.add_argument("--perps", action="store_true",
+                    help="probe all known perpetual tickers (BTCPERP confirmed; the "
+                         "rest are candidates -- misses are skipped) on the perps host, "
+                         "with raw JSON capture on")
     args = ap.parse_args()
     series = args.series if args.series is not None else DEFAULT_CRYPTO_SERIES
-    record(series, args.ticker, args.minutes, args.poll, args.out, args.base, args.raw)
+    tickers = list(args.ticker)
+    base, raw = args.base, args.raw
+    if args.perps:
+        tickers += [t for t in PERP_TICKERS if t not in tickers]
+        base = base or PERPS_BASE_URL
+        raw = raw or "kalshi_perps.jsonl"
+        series = args.series if args.series is not None else []  # perps host: skip event series
+    record(series, tickers, args.minutes, args.poll, args.out, base, raw)
 
 
 if __name__ == "__main__":

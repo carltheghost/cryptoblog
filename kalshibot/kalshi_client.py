@@ -25,6 +25,15 @@ BASE_URL = os.environ.get(
 # tickers can change; this is a starting map, override via KALSHI_CRYPTO_SERIES.
 DEFAULT_CRYPTO_SERIES = ["KXBTC", "KXETH", "KXSOL", "KXXRP", "KXDOGE", "KXADA", "KXLINK"]
 
+# Perpetual futures (separate leveraged margin product, launched 2026-05-29).
+# BTCPERP is CFTC-confirmed; the rest follow the same pattern but are CANDIDATES
+# to probe -- the recorder skips any that don't resolve. Perps live on a separate
+# API host; set base_url to PERPS_BASE_URL when recording them.
+PERPS_BASE_URL = "https://external-api.kalshi.com/trade-api/v2"
+PERP_TICKERS = ["BTCPERP",  # confirmed (CFTC press release 9240-26)
+                "ETHPERP", "XRPPERP", "SOLPERP", "DOGEPERP", "XLMPERP", "LINKPERP",
+                "BCHPERP", "LTCPERP", "SUIPERP", "SHIBPERP", "DOTPERP", "HBARPERP"]
+
 
 class KalshiClient:
     def __init__(self, base_url: str = BASE_URL, timeout: int = 10):
