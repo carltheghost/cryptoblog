@@ -116,6 +116,20 @@ With no LLM it's a fast natural-language *command* assistant, not a chatbot — 
 it controls the same in-process sim engine. Paper/sim only: it never places real
 orders.
 
+#### Using a local Hermes (or any Ollama) model
+
+The assistant **auto-detects** your installed models and prefers a Hermes one if
+present — you don't have to configure anything. If chat isn't working:
+
+1. In one terminal: `ollama serve`
+2. Pull a model if you have none: `ollama pull hermes3`
+3. In the assistant, type `doctor` — it reports whether Ollama is up, which models
+   you have, and which one it will chat with.
+4. To force a specific model: `OLLAMA_MODEL=your-model-name python -m kalshibot.assistant`
+
+One-step install: run `bash setup.sh` (macOS/Linux) or double-click `setup.bat`
+(Windows). It installs dependencies, checks for Ollama/Hermes, and runs `doctor`.
+
 ### Web dashboard (`kalshibot.webui`)
 
 A localhost control deck (stdlib only, no pip installs) that renders the agents

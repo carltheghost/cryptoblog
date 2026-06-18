@@ -51,6 +51,7 @@ HELP = """I'm your local kalshibot assistant. Things you can say:
   compare / which is best              - rank all strategies
   spawn <N> agents [edge <0..1>]       - run a multi-agent arena + leaderboard
   models                               - list your local Ollama models
+  doctor                               - check Python / Ollama / Hermes / backend
   dashboard                            - open the web UI in your browser
   help                                 - this message
   quit                                 - leave
@@ -67,6 +68,10 @@ def parse(text: str) -> dict:
         return {"cmd": "quit"}
     if t in ("help", "?") or "what can you" in t or "how do i" in t:
         return {"cmd": "help"}
+    if any(w in t for w in ("doctor", "diagnose", "troubleshoot", "health check",
+                            "check setup", "is hermes", "is ollama", "llm working",
+                            "why isn't", "why doesn't", "not working", "fix")):
+        return {"cmd": "doctor"}
     if "model" in t and any(w in t for w in ("list", "models", "which", "available", "show")):
         return {"cmd": "models"}
     if (any(w in t for w in ("live", "record", "collect data", "gather data",
@@ -128,6 +133,31 @@ def parse(text: str) -> dict:
 
 
 # ------------------------------ optional LLM -------------------------------
+def ollama_models() -> list[str]:
+    """Return the list of model names installed in the local Ollama, or []."""
+    import urllib.request
+    with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=2) as r:
+        return [m.get("name", "") for m in json.loads(r.read()).get("models", [])]
+
+
+def choose_ollama_model() -> str:
+    """Pick which local model to chat with. Respects OLLAMA_MODEL; otherwise
+    prefers a Hermes model if you have one, else the first installed model."""
+    env = os.environ.get("OLLAMA_MODEL")
+    if env:
+        return env
+    try:
+        names = [n for n in ollama_models() if n]
+    except Exception:
+        return "llama3.2"
+    if not names:
+        return "llama3.2"
+    for n in names:
+        if "hermes" in n.lower():
+            return n
+    return names[0]
+
+
 def llm_backend() -> str:
     """Detect an available LLM backend: 'ollama', 'anthropic', or 'none'."""
     try:
@@ -156,7 +186,7 @@ def llm_reply(text: str, snapshot: dict, backend: str) -> str | None:
             import urllib.request
             req = urllib.request.Request(
                 "http://localhost:11434/api/generate",
-                data=json.dumps({"model": os.environ.get("OLLAMA_MODEL", "llama3.2"),
+                data=json.dumps({"model": choose_ollama_model(),
                                  "prompt": prompt, "stream": False}).encode(),
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -243,6 +273,25 @@ class Assistant:
                 lines.append(f"  {i}. {r['strategy']:<9} ${r['total_pnl']:+8.2f}  "
                              f"{r['avg_trades']:>4.1f} trades/mkt  ${r['fees']:.0f} fees")
             lines.append("Lesson holds: the strategy that trades least loses least.")
+            return "\n".join(lines), True
+
+        if cmd == "doctor":
+            self.backend = llm_backend()   # re-detect in case you just started Ollama
+            lines = ["self-check:", f"  python: {sys.version.split()[0]}"]
+            try:
+                names = ollama_models()
+                lines.append(f"  ollama: UP — models: {', '.join(names) or '(none pulled)'}")
+                lines.append(f"  chat model in use: {choose_ollama_model()}")
+                if not any("hermes" in n.lower() for n in names) and not os.environ.get("OLLAMA_MODEL"):
+                    lines.append("  note: no Hermes model seen. Pull one: `ollama pull hermes3`"
+                                 " (or set OLLAMA_MODEL=<your model name>).")
+            except Exception:
+                lines.append("  ollama: DOWN — start it in another terminal: `ollama serve`,"
+                             " then pull a model, e.g. `ollama pull hermes3`.")
+            lines.append(f"  ANTHROPIC_API_KEY: {'set' if os.environ.get('ANTHROPIC_API_KEY') else 'not set'}")
+            lines.append(f"  active chat backend: {self.backend}"
+                         + ("  (rule-based — everything still works, just no free-form chat)"
+                            if self.backend == "none" else ""))
             return "\n".join(lines), True
 
         if cmd == "models":
