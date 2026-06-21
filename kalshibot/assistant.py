@@ -161,17 +161,56 @@ def choose_ollama_model() -> str:
     return names[0]
 
 
+def openai_local_base() -> str | None:
+    """Detect an OpenAI-compatible local LLM server (LM Studio, Jan, llama.cpp,
+    text-generation-webui, etc.). Respects OPENAI_BASE_URL; else tries LM Studio's
+    default port 1234."""
+    base = os.environ.get("OPENAI_BASE_URL")
+    if base:
+        return base.rstrip("/")
+    try:
+        import urllib.request
+        url = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1").rstrip("/")
+        urllib.request.urlopen(url + "/models", timeout=0.6)
+        return url
+    except Exception:
+        return None
+
+
 def llm_backend() -> str:
-    """Detect an available LLM backend: 'ollama', 'anthropic', or 'none'."""
+    """Detect an available LLM backend, in preference order:
+    'ollama' (Hermes etc.) -> 'lmstudio' (OpenAI-compatible local) -> 'anthropic' -> 'none'."""
     try:
         import urllib.request
         urllib.request.urlopen("http://localhost:11434/api/tags", timeout=0.6)
         return "ollama"
     except Exception:
         pass
+    if openai_local_base():
+        return "lmstudio"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
     return "none"
+
+
+def _openai_chat(base: str, prompt: str) -> str | None:
+    """Call any OpenAI-compatible /chat/completions endpoint (LM Studio etc.)."""
+    import urllib.request
+    model = os.environ.get("LMSTUDIO_MODEL")
+    if not model:
+        try:
+            with urllib.request.urlopen(base + "/models", timeout=2) as r:
+                model = json.loads(r.read())["data"][0]["id"]
+        except Exception:
+            model = "local-model"
+    body = json.dumps({"model": model, "max_tokens": 160,
+                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    key = os.environ.get("OPENAI_API_KEY", "lm-studio")
+    req = urllib.request.Request(base + "/chat/completions", data=body,
+                                 headers={"Content-Type": "application/json",
+                                          "Authorization": f"Bearer {key}"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        return json.loads(r.read())["choices"][0]["message"]["content"].strip()
 
 
 def llm_reply(text: str, snapshot: dict, backend: str) -> str | None:
@@ -194,6 +233,10 @@ def llm_reply(text: str, snapshot: dict, backend: str) -> str | None:
                 headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.loads(r.read()).get("response", "").strip()
+        if backend == "lmstudio":
+            base = openai_local_base()
+            if base:
+                return _openai_chat(base, prompt)
         if backend == "anthropic":
             from anthropic import Anthropic
             client = Anthropic()
@@ -291,6 +334,8 @@ class Assistant:
             except Exception:
                 lines.append("  ollama: DOWN — start it in another terminal: `ollama serve`,"
                              " then pull a model, e.g. `ollama pull hermes3`.")
+            base = openai_local_base()
+            lines.append(f"  LM Studio / OpenAI-compatible: {base if base else 'not detected (start LM Studio server on :1234)'}")
             lines.append(f"  ANTHROPIC_API_KEY: {'set' if os.environ.get('ANTHROPIC_API_KEY') else 'not set'}")
             lines.append(f"  active chat backend: {self.backend}"
                          + ("  (rule-based — everything still works, just no free-form chat)"

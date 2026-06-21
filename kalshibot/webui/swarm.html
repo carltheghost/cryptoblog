@@ -25,10 +25,17 @@
   .pos{color:var(--green)} .neg{color:var(--red)}
   .controls{display:flex;gap:14px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);
     background:var(--panel);flex-wrap:wrap}
-  button{cursor:pointer;border:1px solid var(--line);background:#16203a;color:var(--txt);
-    padding:8px 14px;border-radius:8px;font-family:inherit;font-size:12px}
-  button:hover{border-color:var(--blue)}
-  button.go{border-color:#1d5a45;color:var(--green)} button.stop{border-color:#5a2330;color:var(--red)}
+  button{cursor:pointer;border:1px solid var(--line);color:var(--txt);
+    background:linear-gradient(180deg,#1b2949,#121a30);
+    padding:9px 16px;border-radius:9px;font-family:inherit;font-size:12px;font-weight:600;
+    box-shadow:0 3px 0 #0a1124,0 4px 10px rgba(0,0,0,.4);
+    transition:transform .08s ease, box-shadow .08s ease, border-color .15s ease;
+    transform:perspective(400px) translateZ(0)}
+  button:hover{border-color:var(--blue);transform:perspective(400px) translateY(-2px) rotateX(8deg);
+    box-shadow:0 6px 0 #0a1124,0 10px 18px rgba(73,180,255,.25)}
+  button:active{transform:perspective(400px) translateY(2px);box-shadow:0 1px 0 #0a1124}
+  button.go{border-color:#1d5a45;color:var(--green);background:linear-gradient(180deg,#103a2c,#0c2a20)}
+  button.stop{border-color:#5a2330;color:var(--red);background:linear-gradient(180deg,#3a1620,#2a0c12)}
   .sld{display:flex;flex-direction:column;font-size:10px;color:var(--dim);min-width:130px}
   .sld b{color:var(--txt)} input[type=range]{accent-color:var(--violet)}
   main{display:grid;grid-template-columns:1fr 360px;gap:14px;padding:14px}
