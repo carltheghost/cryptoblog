@@ -81,6 +81,7 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
     raw_f = open(raw, "a") if raw else None
     deadline = time.time() + minutes * 60
     rows = 0
+    dead: set[str] = set()   # tickers that 404'd -- stop re-requesting them
     with open(out, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         if new_file:
@@ -93,10 +94,20 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
                 except Exception as e:
                     print(f"[record] list {s} failed: {e}")
             for tk in tickers:
+                if tk in dead:
+                    continue
                 try:
                     markets.append(client.get_market(tk))
                 except Exception as e:
-                    print(f"[record] get {tk} failed: {e}")
+                    code = getattr(getattr(e, "response", None), "status_code", None)
+                    if code == 404:
+                        dead.add(tk)
+                        print(f"[record] {tk}: not found (404) — skipping it from now on")
+                    else:
+                        print(f"[record] get {tk} failed: {e}")
+            if not series and tickers and len(dead) == len(tickers):
+                print("[record] all requested tickers 404'd — nothing to record. Stopping.")
+                break
             seen = kept = 0
             for m in markets:
                 if not m.get("ticker"):

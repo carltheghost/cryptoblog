@@ -36,6 +36,8 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--minutes", type=int, default=600, help="how long to record")
     ap.add_argument("--no-record", action="store_true", help="dashboard only, no data capture")
+    ap.add_argument("--perps", action="store_true",
+                    help="also probe perpetual tickers (endpoint unverified; may 404)")
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
 
@@ -44,15 +46,17 @@ def main():
     print("=" * 60)
 
     if not args.no_record:
-        # 15-minute crypto markets -> CSV
+        # all 7 crypto 15-minute markets -> CSV (the liquid ones)
         threading.Thread(target=_recorder, args=(
             DEFAULT_CRYPTO_SERIES, [], args.minutes, "kalshi_data.csv", None, None),
             daemon=True).start()
-        # perpetuals -> raw JSONL on the perps host
-        threading.Thread(target=_recorder, args=(
-            [], list(PERP_TICKERS), args.minutes, "kalshi_perps.csv",
-            PERPS_BASE_URL, "kalshi_perps.jsonl"), daemon=True).start()
-        print("[launch] data recorders started (kalshi_data.csv, kalshi_perps.*)")
+        print(f"[launch] recording {len(DEFAULT_CRYPTO_SERIES)} crypto 15m markets "
+              f"-> kalshi_data.csv")
+        if args.perps:
+            threading.Thread(target=_recorder, args=(
+                [], list(PERP_TICKERS), args.minutes, "kalshi_perps.csv",
+                PERPS_BASE_URL, "kalshi_perps.jsonl"), daemon=True).start()
+            print("[launch] also probing perpetuals (may 404 — endpoint unverified)")
         time.sleep(0.5)
 
     url = f"http://localhost:{args.port}/swarm"
