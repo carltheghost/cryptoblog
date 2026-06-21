@@ -122,8 +122,12 @@
         <div><span>total trades</span><b id="x-tr">—</b></div>
         <div><span>avg fee / trade</span><b id="x-aft">—</b></div>
         <div><span>best / worst agent</span><b id="x-bw">—</b></div>
+        <div><span>max drawdown</span><b id="x-dd">—</b></div>
+        <div><span>swarm Sharpe (rough)</span><b id="x-sh">—</b></div>
         <div><span>signal edge (assumed)</span><b id="x-edge">—</b></div>
       </div>
+      <div id="reality" style="margin-top:8px;font-size:11px;padding:7px;border-radius:7px;
+        border:1px solid var(--line);text-align:center"></div>
     </div>
     <div class="card">
       <h2>Activity Log</h2>
@@ -254,7 +258,25 @@ function render(){
   document.getElementById('x-aft').textContent=tr?('$'+(T.fees/tr).toFixed(3)):'—';
   document.getElementById('x-bw').textContent=
     '+'+STATE.agents[0].pnl.toFixed(0)+' / '+STATE.agents[STATE.agents.length-1].pnl.toFixed(0);
-  document.getElementById('x-edge').textContent=Math.round((STATE.params.signal_edge||0)*100)+'%';
+  // risk metrics from the swarm equity curve
+  const eqs=aggHist.map(d=>d.eq);
+  let peak=-1e9,maxdd=0;eqs.forEach(v=>{peak=Math.max(peak,v);maxdd=Math.max(maxdd,(peak-v)/peak);});
+  document.getElementById('x-dd').textContent=(maxdd*100).toFixed(1)+'%';
+  let sh='—';
+  if(eqs.length>5){const rets=[];for(let i=1;i<eqs.length;i++)rets.push((eqs[i]-eqs[i-1]));
+    const m=rets.reduce((s,v)=>s+v,0)/rets.length;
+    const sd=Math.sqrt(rets.reduce((s,v)=>s+(v-m)*(v-m),0)/rets.length)||1e-9;
+    sh=(m/sd).toFixed(2);}
+  const shEl=document.getElementById('x-sh');shEl.textContent=sh;
+  shEl.className=parseFloat(sh)>0?'pos':parseFloat(sh)<0?'neg':'';
+  const edge=Math.round((STATE.params.signal_edge||0)*100);
+  document.getElementById('x-edge').textContent=edge+'%';
+  // honesty banner baked into the UI
+  const rb=document.getElementById('reality');
+  if(edge>0){rb.textContent='⚠ ASSUMING a '+edge+'% signal edge — UNPROVEN. This green is a "what-if", not a discovered edge.';
+    rb.style.color='var(--gold)';rb.style.borderColor='#5a4a1d';rb.style.background='#2a230c';}
+  else{rb.textContent='✓ ZERO-EDGE REALITY — no crystal ball. This is the honest baseline (it bleeds to fees).';
+    rb.style.color='var(--green)';rb.style.borderColor='#1d5a45';rb.style.background='#0c2a20';}
   document.getElementById('log').innerHTML=STATE.events.map(e=>`<div>${e}</div>`).join('');
 }
 async function ctl(cmd){await fetch('/api/swarm/control',{method:'POST',
