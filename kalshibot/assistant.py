@@ -74,6 +74,9 @@ def parse(text: str) -> dict:
         return {"cmd": "doctor"}
     if "model" in t and any(w in t for w in ("list", "models", "which", "available", "show")):
         return {"cmd": "models"}
+    if any(w in t for w in ("show data", "check data", "peek", "see data",
+                            "head", "csv", "is data", "data flowing", "recorded")):
+        return {"cmd": "peek"}
     if (any(w in t for w in ("live", "record", "collect data", "gather data",
                              "real data", "go live", "perpetual", "perp"))
             or ("start" in t and "trad" in t) or ("paper" in t and "session" in t)):
@@ -307,6 +310,10 @@ class Assistant:
             except Exception:
                 return ("No local Ollama detected at http://localhost:11434. "
                         "Start it with `ollama serve` and pull a model, e.g. `ollama pull llama3.2`.", True)
+
+        if cmd == "peek":
+            from . import peek
+            return peek.summary("kalshi_data.csv"), True
 
         if cmd == "live":
             strat = intent.get("strategy", self.engine.snapshot()["strategy"])
