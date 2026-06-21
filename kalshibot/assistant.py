@@ -163,18 +163,32 @@ def choose_ollama_model() -> str:
 
 def openai_local_base() -> str | None:
     """Detect an OpenAI-compatible local LLM server (LM Studio, Jan, llama.cpp,
-    text-generation-webui, etc.). Respects OPENAI_BASE_URL; else tries LM Studio's
-    default port 1234."""
-    base = os.environ.get("OPENAI_BASE_URL")
+    text-generation-webui, etc.). Respects OPENAI_BASE_URL / LMSTUDIO_URL; else
+    scans the common LM Studio ports (1234-1237) so a non-default port is found."""
+    base = os.environ.get("OPENAI_BASE_URL") or os.environ.get("LMSTUDIO_URL")
     if base:
         return base.rstrip("/")
+    import urllib.request
+    for port in (1234, 1235, 1236, 1237):
+        url = f"http://localhost:{port}/v1"
+        try:
+            urllib.request.urlopen(url + "/models", timeout=0.4)
+            return url
+        except Exception:
+            continue
+    return None
+
+
+def lmstudio_model(base: str) -> str:
+    """The currently-loaded model id reported by the local server."""
+    if os.environ.get("LMSTUDIO_MODEL"):
+        return os.environ["LMSTUDIO_MODEL"]
     try:
         import urllib.request
-        url = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1").rstrip("/")
-        urllib.request.urlopen(url + "/models", timeout=0.6)
-        return url
+        with urllib.request.urlopen(base + "/models", timeout=2) as r:
+            return json.loads(r.read())["data"][0]["id"]
     except Exception:
-        return None
+        return "local-model"
 
 
 def llm_backend() -> str:
@@ -196,13 +210,7 @@ def llm_backend() -> str:
 def _openai_chat(base: str, prompt: str) -> str | None:
     """Call any OpenAI-compatible /chat/completions endpoint (LM Studio etc.)."""
     import urllib.request
-    model = os.environ.get("LMSTUDIO_MODEL")
-    if not model:
-        try:
-            with urllib.request.urlopen(base + "/models", timeout=2) as r:
-                model = json.loads(r.read())["data"][0]["id"]
-        except Exception:
-            model = "local-model"
+    model = lmstudio_model(base)
     body = json.dumps({"model": model, "max_tokens": 160,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     key = os.environ.get("OPENAI_API_KEY", "lm-studio")
@@ -335,7 +343,11 @@ class Assistant:
                 lines.append("  ollama: DOWN — start it in another terminal: `ollama serve`,"
                              " then pull a model, e.g. `ollama pull hermes3`.")
             base = openai_local_base()
-            lines.append(f"  LM Studio / OpenAI-compatible: {base if base else 'not detected (start LM Studio server on :1234)'}")
+            if base:
+                lines.append(f"  LM Studio / OpenAI-compatible: UP at {base} — model: {lmstudio_model(base)}")
+            else:
+                lines.append("  LM Studio / OpenAI-compatible: not detected "
+                             "(set LMSTUDIO_URL=http://localhost:<port>/v1 if on a custom port)")
             lines.append(f"  ANTHROPIC_API_KEY: {'set' if os.environ.get('ANTHROPIC_API_KEY') else 'not set'}")
             lines.append(f"  active chat backend: {self.backend}"
                          + ("  (rule-based — everything still works, just no free-form chat)"
