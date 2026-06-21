@@ -34,17 +34,11 @@ class AgentSpec:
 
 
 def default_roster(n: int) -> list[AgentSpec]:
-    """One agent per strategy, then parameter variants as n grows."""
+    """One agent per strategy, then parameter variants as n grows (up to ~25)."""
     roster = [AgentSpec(name, name) for name in STRATEGIES]
-    variants = [
-        AgentSpec("spread-aggr", "spread", entry_velocity=15.0),
-        AgentSpec("imbalance-tight", "imbalance", entry_velocity=25.0),
-        AgentSpec("chronos-patient", "chronos", entry_velocity=35.0),
-        AgentSpec("momentum-slow", "momentum", entry_velocity=45.0),
-        AgentSpec("spread-wide", "spread", entry_velocity=35.0),
-        AgentSpec("fade-strong", "fade", entry_velocity=40.0),
-    ]
-    roster.extend(variants)
+    for ev in (15.0, 35.0, 45.0, 55.0):
+        for name in STRATEGIES:
+            roster.append(AgentSpec(f"{name}-{int(ev)}", name, entry_velocity=ev))
     return roster[:max(1, n)]
 
 

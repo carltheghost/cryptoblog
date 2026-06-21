@@ -72,7 +72,7 @@ class SwarmEngine:
         with self.lock:
             if "agents" in kw:
                 try:
-                    self.n_agents = max(1, min(13, int(kw.pop("agents"))))
+                    self.n_agents = max(1, min(25, int(kw.pop("agents"))))
                     self._reset()
                 except (TypeError, ValueError):
                     kw.pop("agents", None)
@@ -183,6 +183,34 @@ class SwarmEngine:
             total_eq = sum(r["equity"] for r in rows)
             total_fees = sum(r["fees"] for r in rows)
             invested = self.start_balance * len(rows)
+
+            # SUPERVISOR: a monitor/allocator meta-agent. It aggregates per-strategy
+            # performance and issues a directive. It reallocates attention toward
+            # what is working -- it does NOT invent edge. On zero-edge data it just
+            # surfaces the least-bad, honestly.
+            by_strat: dict[str, list[float]] = {}
+            for r in rows:
+                by_strat.setdefault(r["strategy"], []).append(r["pnl"])
+            strat_avg = {s: sum(v) / len(v) for s, v in by_strat.items()}
+            ranked = sorted(strat_avg.items(), key=lambda kv: kv[1], reverse=True)
+            best_s, best_v = ranked[0]
+            worst_s, worst_v = ranked[-1]
+            edge_on = self.params["signal_edge"] > 0
+            if best_v > 0 and edge_on:
+                directive = (f"Allocating toward '{best_s}' (+${best_v:.2f}/agent). "
+                             f"NOTE: only profitable because signal_edge is assumed "
+                             f"at {self.params['signal_edge']:.0%} — not proven.")
+            elif best_v > 0:
+                directive = (f"'{best_s}' leads (+${best_v:.2f}/agent), but at 0 edge this "
+                             f"is noise/variance, not a real signal. Holding course.")
+            else:
+                directive = (f"All strategies net-negative. Least-bad: '{best_s}' "
+                             f"(${best_v:.2f}). Cutting turnover, not adding agents.")
+            supervisor = {
+                "directive": directive,
+                "best_strategy": best_s, "worst_strategy": worst_s,
+                "ranking": [{"strategy": s, "avg_pnl": round(v, 2)} for s, v in ranked],
+            }
             return {
                 "running": self._running,
                 "n_agents": len(rows),
@@ -196,5 +224,6 @@ class SwarmEngine:
                 "totals": {"equity": round(total_eq, 2), "invested": round(invested, 2),
                            "pnl": round(total_eq - invested, 2), "fees": round(total_fees, 2),
                            "winners": sum(1 for r in rows if r["pnl"] > 0)},
+                "supervisor": supervisor,
                 "events": list(self.events),
             }

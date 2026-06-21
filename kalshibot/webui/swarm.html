@@ -75,7 +75,7 @@
   <button class="stop" onclick="ctl('pause')">⏸ Pause</button>
   <button onclick="ctl('reset')">⟳ Reset</button>
   <div class="sld"><label>Agents <b id="l-ag">8</b></label>
-    <input type="range" id="r-ag" min="1" max="13" value="8" oninput="tune(true)"></div>
+    <input type="range" id="r-ag" min="1" max="25" value="8" oninput="tune(true)"></div>
   <div class="sld"><label>Signal edge (%) <b id="l-ed">0</b></label>
     <input type="range" id="r-ed" min="0" max="100" step="5" value="0" oninput="tune()"></div>
   <div class="sld"><label>Speed (ticks/s) <b id="l-sp">12</b></label>
@@ -135,6 +135,11 @@
       </div>
       <div id="reality" style="margin-top:8px;font-size:11px;padding:7px;border-radius:7px;
         border:1px solid var(--line);text-align:center"></div>
+    </div>
+    <div class="card">
+      <h2>🧠 Supervisor (monitors + allocates)</h2>
+      <div id="sup-dir" style="font-size:11px;line-height:1.5;color:var(--txt);margin-bottom:8px"></div>
+      <div id="sup-rank" style="font-size:11px;color:var(--dim)"></div>
     </div>
     <div class="card">
       <h2>Activity Log</h2>
@@ -284,6 +289,11 @@ function render(){
     rb.style.color='var(--gold)';rb.style.borderColor='#5a4a1d';rb.style.background='#2a230c';}
   else{rb.textContent='✓ ZERO-EDGE REALITY — no crystal ball. This is the honest baseline (it bleeds to fees).';
     rb.style.color='var(--green)';rb.style.borderColor='#1d5a45';rb.style.background='#0c2a20';}
+  if(STATE.supervisor){
+    document.getElementById('sup-dir').textContent='▶ '+STATE.supervisor.directive;
+    document.getElementById('sup-rank').innerHTML=STATE.supervisor.ranking.map(r=>
+      `${r.strategy}: <b style="color:${r.avg_pnl>=0?'var(--green)':'var(--red)'}">${r.avg_pnl>=0?'+':''}${r.avg_pnl}</b>/agent`).join(' &nbsp; ');
+  }
   document.getElementById('log').innerHTML=STATE.events.map(e=>`<div>${e}</div>`).join('');
 }
 async function ctl(cmd){await fetch('/api/swarm/control',{method:'POST',
