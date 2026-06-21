@@ -8,3 +8,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# data captures
+*.csv
+*.jsonl

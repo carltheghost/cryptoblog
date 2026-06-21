@@ -60,6 +60,9 @@ edge. Two robust takeaways:
 ```bash
 pip install -r requirements.txt
 
+# 0) EVERYTHING AT ONCE — swarm dashboard + live data recording, one command:
+python -m kalshibot.launch        # opens http://localhost:8765/swarm
+
 # 1) Offline backtest — runs with no network, shows the economics:
 python -m kalshibot.backtest
 

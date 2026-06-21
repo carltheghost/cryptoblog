@@ -36,5 +36,6 @@ a=Assistant(); print(a.handle('doctor')[0])" || true
 
 echo
 echo "== Done. Start it with: =="
-echo "  $PY -m kalshibot.assistant      # then type: doctor   (or: spawn 11 agents)"
-echo "  $PY -m kalshibot.webui          # the web dashboard"
+echo "  $PY -m kalshibot.launch         # EVERYTHING: swarm dashboard + data recording"
+echo "  $PY -m kalshibot.assistant      # talk to it; type: doctor   (or: spawn 11 agents)"
+echo "  $PY -m kalshibot.webui          # just the dashboards (/  and  /swarm)"

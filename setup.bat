@@ -26,6 +26,7 @@ python -c "from kalshibot.assistant import Assistant; a=Assistant(); print(a.han
 
 echo.
 echo == Done. Start it with: ==
-echo   python -m kalshibot.assistant      (then type: doctor)
-echo   python -m kalshibot.webui          (the web dashboard)
+echo   python -m kalshibot.launch         (EVERYTHING: swarm dashboard + data recording)
+echo   python -m kalshibot.assistant      (talk to it; type: doctor)
+echo   python -m kalshibot.webui          (just the dashboards /  and  /swarm)
 pause
