@@ -85,6 +85,19 @@
       </table>
     </div>
     <div class="card">
+      <h2>Strategy performance & P&L distribution</h2>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px">avg P&L by strategy</div>
+          <canvas id="bars" height="150" style="width:100%"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px">agent P&L distribution</div>
+          <canvas id="hist" height="150" style="width:100%"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card">
       <h2>Swarm equity vs cumulative fees</h2>
       <canvas id="agg" height="150" style="width:100%"></canvas>
     </div>
@@ -97,6 +110,19 @@
         <div><span>target</span><b>$<span id="m-target">—</span></b></div>
         <div><span>book imbalance</span><b id="m-imb">—</b></div>
         <div><span>expires in</span><b id="m-left">—</b></div>
+      </div>
+      <canvas id="gauge" height="70" style="width:100%;margin-top:6px"></canvas>
+    </div>
+    <div class="card">
+      <h2>Technical Metrics (live, real)</h2>
+      <div class="market">
+        <div><span>invested (11 × $21)</span><b id="x-inv">—</b></div>
+        <div><span>net of fees</span><b id="x-net">—</b></div>
+        <div><span>fee drag</span><b id="x-drag">—</b></div>
+        <div><span>total trades</span><b id="x-tr">—</b></div>
+        <div><span>avg fee / trade</span><b id="x-aft">—</b></div>
+        <div><span>best / worst agent</span><b id="x-bw">—</b></div>
+        <div><span>signal edge (assumed)</span><b id="x-edge">—</b></div>
       </div>
     </div>
     <div class="card">
@@ -141,6 +167,46 @@ function drawAgg(){
   x.fillStyle="#ffc861";x.fillText("fees $"+fe[fe.length-1].toFixed(0),6,27);
 }
 
+function drawBars(agents){
+  const cv=document.getElementById('bars'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const by={};agents.forEach(a=>{(by[a.strategy]=by[a.strategy]||[]).push(a.pnl);});
+  const keys=Object.keys(by);const avg=keys.map(k=>by[k].reduce((s,v)=>s+v,0)/by[k].length);
+  const mx=Math.max(1,...avg.map(Math.abs));const bw=W/keys.length;const zero=H/2;
+  x.strokeStyle="rgba(124,137,173,.4)";x.beginPath();x.moveTo(0,zero);x.lineTo(W,zero);x.stroke();
+  keys.forEach((k,i)=>{const v=avg[i],h=(Math.abs(v)/mx)*(H/2-12);
+    x.fillStyle=v>=0?"#27e0a3":"#ff5d73";
+    x.fillRect(i*bw+6,v>=0?zero-h:zero,bw-12,h);
+    x.fillStyle="#dbe5ff";x.font="9px monospace";x.textAlign="center";
+    x.fillText(k,i*bw+bw/2,H-3);x.fillText((v>=0?'+':'')+v.toFixed(0),i*bw+bw/2,v>=0?zero-h-3:zero+h+9);});
+  x.textAlign="left";
+}
+function drawHist(agents){
+  const cv=document.getElementById('hist'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const v=agents.map(a=>a.pnl);if(!v.length)return;
+  let lo=Math.min(...v),hi=Math.max(...v);if(hi-lo<1){hi+=1;lo-=1;}
+  const nb=9,buckets=new Array(nb).fill(0);
+  v.forEach(p=>{let b=Math.floor((p-lo)/(hi-lo)*nb);b=Math.max(0,Math.min(nb-1,b));buckets[b]++;});
+  const mx=Math.max(...buckets),bw=W/nb;
+  buckets.forEach((c,i)=>{const h=(c/mx)*(H-22);const mid=lo+(i+0.5)/nb*(hi-lo);
+    x.fillStyle=mid>=0?"rgba(39,224,163,.8)":"rgba(255,93,115,.8)";
+    x.fillRect(i*bw+2,H-14-h,bw-4,h);});
+  x.fillStyle="var(--dim)";x.font="9px monospace";
+  x.fillText('$'+lo.toFixed(0),2,H-2);x.textAlign="right";x.fillText('$'+hi.toFixed(0),W-2,H-2);x.textAlign="left";
+}
+function drawGauge(im){
+  const cv=document.getElementById('gauge'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const cx=W/2,cy=H-6,R=H-16;
+  x.lineWidth=8;x.strokeStyle="rgba(40,55,90,.6)";x.beginPath();x.arc(cx,cy,R,Math.PI,0);x.stroke();
+  const ang=Math.PI+(im+1)/2*Math.PI;
+  x.strokeStyle=im>=0?"#27e0a3":"#ff5d73";x.beginPath();x.arc(cx,cy,R,Math.PI,ang);x.stroke();
+  x.strokeStyle="#dbe5ff";x.lineWidth=2;x.beginPath();x.moveTo(cx,cy);
+  x.lineTo(cx+Math.cos(ang)*R*0.9,cy+Math.sin(ang)*R*0.9);x.stroke();
+  x.fillStyle="var(--dim)";x.font="9px monospace";x.textAlign="center";
+  x.fillText("← sell      ORDER FLOW      buy →",cx,H-1);x.textAlign="left";
+}
 async function poll(){
   try{const r=await fetch('/api/swarm');STATE=await r.json();render();}catch(e){}
 }
@@ -177,7 +243,18 @@ function render(){
   // aggregate history
   aggHist.push({eq:T.equity,fee:T.fees,inv:T.invested});
   if(aggHist.length>240)aggHist.shift();
-  drawAgg();
+  drawAgg();drawBars(STATE.agents);drawHist(STATE.agents);drawGauge(STATE.imbalance);
+  // technical metrics
+  const tr=STATE.agents.reduce((s,a)=>s+a.trades,0);
+  document.getElementById('x-inv').textContent='$'+T.invested.toFixed(2);
+  const net=document.getElementById('x-net');net.textContent=(T.pnl>=0?'+$':'-$')+Math.abs(T.pnl).toFixed(2);
+  net.className=T.pnl>=0?'pos':'neg';
+  document.getElementById('x-drag').textContent=T.equity>0?(100*T.fees/T.invested).toFixed(1)+'% of capital':'—';
+  document.getElementById('x-tr').textContent=tr;
+  document.getElementById('x-aft').textContent=tr?('$'+(T.fees/tr).toFixed(3)):'—';
+  document.getElementById('x-bw').textContent=
+    '+'+STATE.agents[0].pnl.toFixed(0)+' / '+STATE.agents[STATE.agents.length-1].pnl.toFixed(0);
+  document.getElementById('x-edge').textContent=Math.round((STATE.params.signal_edge||0)*100)+'%';
   document.getElementById('log').innerHTML=STATE.events.map(e=>`<div>${e}</div>`).join('');
 }
 async function ctl(cmd){await fetch('/api/swarm/control',{method:'POST',
