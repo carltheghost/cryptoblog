@@ -372,6 +372,10 @@ class Assistant:
             from . import peek
             return peek.summary("kalshi_data.csv"), True
 
+        if cmd == "analyze":
+            from . import analyze
+            return analyze.analyze("kalshi_data.csv"), True
+
         if cmd == "live":
             strat = intent.get("strategy", self.engine.snapshot()["strategy"])
             jobs = [
