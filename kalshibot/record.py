@@ -36,6 +36,28 @@ FIELDS = ["ts", "ticker", "status", "yes_bid", "yes_ask", "mid", "spread",
           "last_price", "volume", "open_interest", "liquidity", "imbalance"]
 
 
+def _num(m: dict, *keys) -> float:
+    """First parseable numeric among keys (handles string '_dollars' fields)."""
+    for k in keys:
+        v = m.get(k)
+        if v not in (None, ""):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                pass
+    return 0.0
+
+
+def _is_active(m: dict) -> bool:
+    """True if a market has any real quote or activity (skip dead strike ladders)."""
+    yb, ya = KalshiClient.best_bid_ask(m)
+    if yb > 0 or ya > 0:
+        return True
+    return (_num(m, "open_interest_fp", "open_interest") > 0
+            or _num(m, "volume", "volume_dollars") > 0
+            or _num(m, "liquidity_dollars", "liquidity") > 0)
+
+
 def _row(client: KalshiClient, m: dict) -> dict:
     ticker = m.get("ticker", "")
     yes_bid, yes_ask = KalshiClient.best_bid_ask(m)
@@ -52,18 +74,12 @@ def _row(client: KalshiClient, m: dict) -> dict:
         "yes_ask": round(yes_ask, 4),
         "mid": round(mid, 4),
         "spread": round(max(0.0, yes_ask - yes_bid), 4),
-        "last_price": (m.get("last_price") or 0) / 100.0,
-        "volume": m.get("volume", 0),
-        "open_interest": m.get("open_interest", 0),
-        "liquidity": m.get("liquidity", 0),
+        "last_price": round(_num(m, "last_price_dollars", "last_price"), 4),
+        "volume": _num(m, "volume", "volume_dollars"),
+        "open_interest": _num(m, "open_interest_fp", "open_interest"),
+        "liquidity": _num(m, "liquidity_dollars", "liquidity"),
         "imbalance": round(imbalance, 4),
     }
-
-
-def _is_active(m: dict) -> bool:
-    """True if a market has any real quote or activity (skip dead strike ladders)."""
-    return ((m.get("yes_bid") or 0) > 0 or (m.get("yes_ask") or 0) > 0
-            or (m.get("volume") or 0) > 0 or (m.get("open_interest") or 0) > 0)
 
 
 def record(series: list[str], tickers: list[str], minutes: int, poll: float, out: str,

@@ -68,13 +68,34 @@ class KalshiClient:
     def best_bid_ask(market: dict) -> tuple[float, float]:
         """Return (yes_bid, yes_ask) in dollars from a market dict.
 
-        Kalshi quotes cents; yes_bid/yes_ask are 1..99. Returns dollars.
-        """
-        bid = market.get("yes_bid")
-        ask = market.get("yes_ask")
-        bid = (bid or 0) / 100.0
-        ask = (ask or 0) / 100.0
-        return bid, ask
+        Kalshi's current API returns prices as `*_dollars` STRING fields
+        (e.g. "0.6900"). Older responses used integer cents (yes_bid 1..99).
+        This reads the new fields, falls back to legacy cents, and derives the
+        yes side from the no side when only the no book is quoted (binary
+        complement: yes_bid = 1 - no_ask, yes_ask = 1 - no_bid)."""
+        def f(*keys):
+            for k in keys:
+                v = market.get(k)
+                if v not in (None, ""):
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        pass
+            return 0.0
+
+        yb = f("yes_bid_dollars")
+        ya = f("yes_ask_dollars")
+        nb = f("no_bid_dollars")
+        na = f("no_ask_dollars")
+        if yb == 0 and ya == 0:                      # legacy integer-cent fields
+            cb, ca = market.get("yes_bid"), market.get("yes_ask")
+            if cb or ca:
+                yb, ya = (cb or 0) / 100.0, (ca or 0) / 100.0
+        if yb == 0 and na > 0:                       # derive yes from no side
+            yb = round(1.0 - na, 4)
+        if ya == 0 and nb > 0:
+            ya = round(1.0 - nb, 4)
+        return yb, ya
 
     # ---- live trading (intentionally disabled) ----------------------------
     def place_order(self, *args, **kwargs):
