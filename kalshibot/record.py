@@ -60,10 +60,17 @@ def _row(client: KalshiClient, m: dict) -> dict:
     }
 
 
+def _is_active(m: dict) -> bool:
+    """True if a market has any real quote or activity (skip dead strike ladders)."""
+    return ((m.get("yes_bid") or 0) > 0 or (m.get("yes_ask") or 0) > 0
+            or (m.get("volume") or 0) > 0 or (m.get("open_interest") or 0) > 0)
+
+
 def record(series: list[str], tickers: list[str], minutes: int, poll: float, out: str,
-           base: str | None = None, raw: str | None = None):
+           base: str | None = None, raw: str | None = None, active_only: bool = True):
     client = KalshiClient(base_url=base) if base else KalshiClient()
-    print(f"[record] {client.base_url}  ->  {out}" + (f"  (+raw {raw})" if raw else ""))
+    print(f"[record] {client.base_url}  ->  {out}" + (f"  (+raw {raw})" if raw else "")
+          + ("  [active markets only]" if active_only else "  [ALL markets]"))
     try:
         print(f"[record] exchange status: {client.exchange_status()}")
     except Exception as e:
@@ -90,11 +97,16 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
                     markets.append(client.get_market(tk))
                 except Exception as e:
                     print(f"[record] get {tk} failed: {e}")
+            seen = kept = 0
             for m in markets:
                 if not m.get("ticker"):
                     continue
+                seen += 1
+                if active_only and not _is_active(m):
+                    continue   # skip dead/illiquid strikes before the orderbook call
                 w.writerow(_row(client, m))
                 rows += 1
+                kept += 1
                 if raw_f:   # full JSON per market -- schema-agnostic (good for perps)
                     raw_f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
                                             "market": m}) + "\n")
@@ -102,7 +114,7 @@ def record(series: list[str], tickers: list[str], minutes: int, poll: float, out
             if raw_f:
                 raw_f.flush()
             print(f"[record] {datetime.now().strftime('%H:%M:%S')}  "
-                  f"markets={len(markets)}  rows_total={rows}")
+                  f"markets seen={seen}  with-quotes={kept}  rows_total={rows}")
             time.sleep(poll)
     if raw_f:
         raw_f.close()
@@ -128,6 +140,9 @@ def main():
                     help="probe all known perpetual tickers (BTCPERP confirmed; the "
                          "rest are candidates -- misses are skipped) on the perps host, "
                          "with raw JSON capture on")
+    ap.add_argument("--all", action="store_true",
+                    help="record ALL markets, including dead/illiquid strikes "
+                         "(default: only markets with live quotes/activity)")
     args = ap.parse_args()
     series = args.series if args.series is not None else DEFAULT_CRYPTO_SERIES
     tickers = list(args.ticker)
@@ -137,7 +152,8 @@ def main():
         base = base or PERPS_BASE_URL
         raw = raw or "kalshi_perps.jsonl"
         series = args.series if args.series is not None else []  # perps host: skip event series
-    record(series, tickers, args.minutes, args.poll, args.out, base, raw)
+    record(series, tickers, args.minutes, args.poll, args.out, base, raw,
+           active_only=not args.all)
 
 
 if __name__ == "__main__":
