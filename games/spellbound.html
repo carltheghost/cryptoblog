@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wizard's Chess: Spellbound</title>
+<style>
+  :root{--cell:68px;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 12%,#1c1330,#05040a 72%);
+    color:#e9e1d2;font-family:"Trebuchet MS",Georgia,serif;display:flex;flex-direction:column;align-items:center}
+  h1{margin:14px 0 0;font-size:28px;letter-spacing:4px;font-weight:800;
+    background:linear-gradient(#c9a0ff,#f7e7a6,#7ad3ff);-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 34px rgba(150,110,220,.4)}
+  .sub{color:#8f85a5;font-size:11px;letter-spacing:2px;margin:3px 0 4px}
+  #status{height:22px;font-size:15px;color:#d9caff;margin:3px}
+  #status.check{color:#ff7d7d}#status.think{color:#b98be6;font-style:italic}#status.spell{color:#7ad3ff}
+  .wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;justify-content:center;padding:6px 14px 40px}
+  .scene{perspective:1500px}
+  .board{position:relative;width:calc(var(--cell)*8);height:calc(var(--cell)*8);
+    transform:rotateX(50deg);transform-style:preserve-3d;border:10px solid #241b34;border-radius:8px;
+    box-shadow:0 44px 90px rgba(0,0,0,.75),inset 0 0 40px rgba(0,0,0,.6);background:#120e1c}
+  .sq{position:absolute;width:var(--cell);height:var(--cell)}
+  .sq.l{background:linear-gradient(145deg,#5f5670,#4a4258)}
+  .sq.d{background:linear-gradient(145deg,#2c2438,#201a2c)}
+  .sq.sel{box-shadow:inset 0 0 0 4px #f5d76e,inset 0 0 20px rgba(245,215,110,.5)}
+  .sq.tgt{box-shadow:inset 0 0 0 4px #7ad3ff,inset 0 0 22px rgba(120,210,255,.6);cursor:pointer}
+  .sq.last{filter:brightness(1.3) sepia(.4)}
+  .sq .dot{position:absolute;left:50%;top:50%;width:24%;height:24%;transform:translate(-50%,-50%);border-radius:50%;background:rgba(120,235,150,.5);box-shadow:0 0 12px rgba(120,235,150,.8)}
+  .sq .ring{position:absolute;inset:7%;border-radius:50%;border:5px solid rgba(255,95,95,.7)}
+  #pieces{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+  .piece{position:absolute;width:var(--cell);height:var(--cell);left:0;top:0;display:flex;align-items:center;justify-content:center;font-size:50px;transform-origin:50% 72%;transition:transform .5s cubic-bezier(.33,1.15,.42,1),opacity .35s}
+  .piece.w{color:#f2ead6;text-shadow:0 2px 0 #b7ac89,0 4px 7px rgba(0,0,0,.6)}
+  .piece.b{color:#342e3c;text-shadow:0 2px 0 #120f18,0 5px 9px rgba(0,0,0,.85)}
+  .board.notrans .piece{transition:none}
+  .piece.smash{animation:smash .55s forwards ease-in}
+  @keyframes smash{35%{transform:var(--t) scale(1.2)}100%{transform:var(--t) rotate(75deg) scale(0);opacity:0;filter:blur(3px)}}
+  .badge{position:absolute;top:2px;right:4px;font-size:15px;pointer-events:none}
+  .shard{position:absolute;width:9px;height:9px;border-radius:2px;pointer-events:none;z-index:5}
+  .panel{width:280px;background:#0e0a18;border:1px solid #2c2340;border-radius:16px;padding:14px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .panel h3{margin:2px 0 7px;font-size:12px;letter-spacing:2px;color:#a79bc8;text-transform:uppercase}
+  .mana{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .mana .bar{flex:1;height:14px;background:#08060e;border-radius:8px;overflow:hidden;border:1px solid #2c2340}
+  .mana .fill{height:100%;background:linear-gradient(90deg,#3a6bd6,#7ad3ff);transition:width .4s}
+  .mana b{color:#7ad3ff;font-size:15px;min-width:52px}
+  .spell{display:flex;align-items:center;gap:9px;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px}
+  .spell .ic{font-size:20px}.spell .nm{flex:1}.spell .co{color:#7ad3ff;font-weight:700}
+  .spell:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:0 4px 0 #130f1c}
+  .spell.active{border-color:#7ad3ff;box-shadow:0 0 0 2px rgba(120,210,255,.5)}
+  .hint{font-size:11px;color:#8f85a5;line-height:1.4;margin-top:6px;min-height:30px}
+  .controls{display:flex;gap:8px;margin-top:8px}
+  button,select{font-family:inherit;font-size:13px;color:#efe7d2;background:linear-gradient(#3b3148,#241d30);
+    border:1px solid #5a4a6c;border-radius:10px;padding:9px;cursor:pointer;box-shadow:0 4px 0 #130f1c;transition:transform .07s,box-shadow .07s,border-color .15s;flex:1}
+  button:hover,select:hover{border-color:#8f6fd6;transform:translateY(-2px)}
+  button:active{transform:translateY(2px);box-shadow:0 2px 0 #130f1c}
+  .promo{position:fixed;inset:0;background:rgba(5,3,9,.82);display:none;align-items:center;justify-content:center;z-index:20}
+  .promo.on{display:flex}.promo .box{background:#171122;border:1px solid #5a4a6c;border-radius:16px;padding:18px;text-align:center}
+  .promo .opts{display:flex;gap:10px;margin-top:12px}.promo .opt{font-size:44px;width:66px;height:66px;display:flex;align-items:center;justify-content:center;background:#0c0914;border:1px solid #3a2f4c;border-radius:12px;cursor:pointer;color:#f2ead6}.promo .opt:hover{border-color:#8f6fd6}
+</style>
+</head>
+<body>
+  <h1>WIZARD'S CHESS · SPELLBOUND</h1>
+  <div class="sub">REAL CHESS + BATTLE MAGIC · EARN MANA EACH TURN · CAST TO WIN</div>
+  <div id="status">Your move — or cast a spell.</div>
+  <div class="wrap">
+    <div class="scene"><div class="board" id="board"><div id="squares"></div><div id="pieces"></div></div></div>
+    <div class="panel">
+      <h3>Your Mana</h3>
+      <div class="mana"><div class="bar"><div class="fill" id="manaFill"></div></div><b id="manaTxt">0/10</b></div>
+      <h3>Spellbook</h3>
+      <div id="spells"></div>
+      <div class="hint" id="hint">Tip: click a spell, then click a glowing target. Casting uses your turn.</div>
+      <h3 style="margin-top:8px">Enemy Mana</h3>
+      <div class="mana"><div class="bar"><div class="fill" id="emanaFill" style="background:linear-gradient(90deg,#8b3ad6,#d67aff)"></div></div><b id="emanaTxt" style="color:#d67aff">0/10</b></div>
+      <div class="controls">
+        <select id="depth" title="AI strength"><option value="2">Apprentice</option><option value="3" selected>Hard</option><option value="4">Master</option></select>
+        <button onclick="newGame()">⚔ New</button>
+        <button id="sndBtn" onclick="toggleSound()">🔊</button>
+      </div>
+    </div>
+  </div>
+  <div class="promo" id="promo"><div class="box"><div style="letter-spacing:2px;color:#c9b98a">TRANSFIGURE</div><div class="opts" id="promoOpts"></div></div></div>
+<script>
+const CELL=68,GLYPH={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+const START=[...'rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR'];
+const SPELLS=[
+  {id:'bolt',name:'Fire Bolt',cost:5,ic:'🔥',desc:'Destroy any enemy piece except the King.'},
+  {id:'freeze',name:'Freeze',cost:3,ic:'❄️',desc:'An enemy piece cannot move for 2 of its turns.'},
+  {id:'shield',name:'Shield',cost:2,ic:'🛡️',desc:'One of your pieces cannot be captured for 2 turns.'},
+  {id:'teleport',name:'Apparate',cost:4,ic:'✨',desc:'Move one of your pieces to any empty square.'},
+  {id:'summon',name:'Summon Pawn',cost:4,ic:'🐍',desc:'Conjure a pawn on an empty square in your half.'},
+];
+let board,turn,castle,ep,sel,legal,gameOver,busy,DEPTH=3,human='w',orient='w';
+let mana,frozen,shield,ply,casting,sound=true,nodes=0,deadline=0;
+const sqEl=document.getElementById('squares'),pcEl=document.getElementById('pieces'),
+  statusEl=document.getElementById('status'),boardEl=document.getElementById('board');
+const onB=(r,c)=>r>=0&&r<8&&c>=0&&c<8,colorOf=p=>p==='.'?null:(p===p.toUpperCase()?'w':'b'),opp=c=>c==='w'?'b':'w';
+
+/* ---- verified engine ---- */
+function attacked(bd,idx,by){const r=idx/8|0,c=idx%8;const pr=by==='w'?1:-1,pp=by==='w'?'P':'p';
+  if(onB(r+pr,c-1)&&bd[(r+pr)*8+c-1]===pp)return true;if(onB(r+pr,c+1)&&bd[(r+pr)*8+c+1]===pp)return true;
+  const N=by==='w'?'N':'n';for(const[dr,dc]of[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]])if(onB(r+dr,c+dc)&&bd[(r+dr)*8+c+dc]===N)return true;
+  const K=by==='w'?'K':'k';for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&onB(r+dr,c+dc)&&bd[(r+dr)*8+c+dc]===K)return true;
+  const R=by==='w'?'R':'r',Q=by==='w'?'Q':'q',B=by==='w'?'B':'b';
+  for(const[dr,dc]of[[-1,0],[1,0],[0,-1],[0,1]]){let nr=r+dr,nc=c+dc;while(onB(nr,nc)){const q=bd[nr*8+nc];if(q!=='.'){if(q===R||q===Q)return true;break;}nr+=dr;nc+=dc;}}
+  for(const[dr,dc]of[[-1,-1],[-1,1],[1,-1],[1,1]]){let nr=r+dr,nc=c+dc;while(onB(nr,nc)){const q=bd[nr*8+nc];if(q!=='.'){if(q===B||q===Q)return true;break;}nr+=dr;nc+=dc;}}
+  return false;}
+const kingIdx=(bd,col)=>bd.indexOf(col==='w'?'K':'k'),inCheck=(bd,col)=>attacked(bd,kingIdx(bd,col),opp(col));
+function pseudo(bd,col,cas,epi){const mv=[],fwd=col==='w'?-1:1,sR=col==='w'?6:1,pR=col==='w'?0:7;
+  for(let i=0;i<64;i++){const p=bd[i];if(p==='.'||colorOf(p)!==col)continue;const r=i/8|0,c=i%8,t=p.toLowerCase();
+    if(t==='p'){const f1=(r+fwd)*8+c;if(onB(r+fwd,c)&&bd[f1]==='.'){addP(mv,i,f1,r+fwd===pR);if(r===sR){const f2=(r+2*fwd)*8+c;if(bd[f2]==='.')mv.push({f:i,t:f2,fl:'double'});}}
+      for(const dc of[-1,1]){const nr=r+fwd,nc=c+dc;if(!onB(nr,nc))continue;const j=nr*8+nc;if(bd[j]!=='.'&&colorOf(bd[j])!==col)addP(mv,i,j,nr===pR);else if(j===epi)mv.push({f:i,t:j,fl:'ep'});}}
+    else if(t==='n'){for(const[dr,dc]of[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]){const nr=r+dr,nc=c+dc;if(onB(nr,nc)){const j=nr*8+nc;if(bd[j]==='.'||colorOf(bd[j])!==col)mv.push({f:i,t:j});}}}
+    else if(t==='k'){for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const nr=r+dr,nc=c+dc;if(onB(nr,nc)){const j=nr*8+nc;if(bd[j]==='.'||colorOf(bd[j])!==col)mv.push({f:i,t:j});}}
+      const home=col==='w'?60:4,kR=col==='w'?cas.K:cas.k,qR=col==='w'?cas.Q:cas.q;
+      if(i===home&&!inCheck(bd,col)){if(kR&&bd[home+1]==='.'&&bd[home+2]==='.'&&!attacked(bd,home+1,opp(col))&&!attacked(bd,home+2,opp(col)))mv.push({f:i,t:home+2,fl:'cK'});
+        if(qR&&bd[home-1]==='.'&&bd[home-2]==='.'&&bd[home-3]==='.'&&!attacked(bd,home-1,opp(col))&&!attacked(bd,home-2,opp(col)))mv.push({f:i,t:home-2,fl:'cQ'});}}
+    else{const dirs=t==='r'?[[-1,0],[1,0],[0,-1],[0,1]]:t==='b'?[[-1,-1],[-1,1],[1,-1],[1,1]]:[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+      for(const[dr,dc]of dirs){let nr=r+dr,nc=c+dc;while(onB(nr,nc)){const j=nr*8+nc;if(bd[j]==='.')mv.push({f:i,t:j});else{if(colorOf(bd[j])!==col)mv.push({f:i,t:j});break;}nr+=dr;nc+=dc;}}}}
+  return mv;}
+function addP(mv,f,t,promo){if(promo){for(const pp of['q','r','b','n'])mv.push({f,t,promo:pp});}else mv.push({f,t});}
+function applyMove(bd,m,col,cas,epi){const nb=bd.slice(),nc={K:cas.K,Q:cas.Q,k:cas.k,q:cas.q};let nep=-1;const p=nb[m.f];nb[m.f]='.';
+  if(m.fl==='ep'){const cr=m.f/8|0;nb[cr*8+(m.t%8)]='.';}nb[m.t]=p;if(m.promo)nb[m.t]=col==='w'?m.promo.toUpperCase():m.promo;
+  if(m.fl==='cK'){nb[m.t+1]='.';nb[m.t-1]=col==='w'?'R':'r';}if(m.fl==='cQ'){nb[m.t-2]='.';nb[m.t+1]=col==='w'?'R':'r';}
+  if(m.fl==='double')nep=(m.f+m.t)/2;const pl=p.toLowerCase();
+  if(pl==='k'){if(col==='w'){nc.K=0;nc.Q=0;}else{nc.k=0;nc.q=0;}}
+  if(m.f===56||m.t===56)nc.Q=0;if(m.f===63||m.t===63)nc.K=0;if(m.f===0||m.t===0)nc.q=0;if(m.f===7||m.t===7)nc.k=0;
+  return{bd:nb,cas:nc,ep:nep};}
+function legalMoves(bd,col,cas,epi){const out=[];for(const m of pseudo(bd,col,cas,epi)){const a=applyMove(bd,m,col,cas,epi);if(!inCheck(a.bd,col))out.push(m);}return out;}
+
+/* ---- status-aware legality ---- */
+const isFrozen=sq=>(frozen[sq]||0)>ply, isShielded=sq=>(shield[sq]||0)>ply;
+function statusLegal(col){return legalMoves(board,col,castle,ep).filter(m=>{
+  if(isFrozen(m.f))return false;
+  const cap=(m.fl==='ep')?((m.f/8|0)*8+m.t%8):(board[m.t]!=='.'?m.t:-1);
+  if(cap>=0&&isShielded(cap))return false; return true;});}
+
+/* ---- eval + search (for AI move) ---- */
+const VAL={p:100,n:320,b:335,r:500,q:950,k:0};
+const PSTp=[0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,10,10,20,30,30,20,10,10,5,5,10,27,27,10,5,5,0,0,0,25,25,0,0,0,5,-5,-10,0,0,-10,-5,5,5,10,10,-25,-25,10,10,5,0,0,0,0,0,0,0,0];
+const PSTn=[-50,-40,-30,-30,-30,-30,-40,-50,-40,-20,0,0,0,0,-20,-40,-30,0,10,15,15,10,0,-30,-30,5,15,20,20,15,5,-30,-30,0,15,20,20,15,0,-30,-30,5,10,15,15,10,5,-30,-40,-20,0,5,5,0,-20,-40,-50,-40,-30,-30,-30,-30,-40,-50];
+function evaluate(bd){let s=0;for(let i=0;i<64;i++){const p=bd[i];if(p==='.')continue;const t=p.toLowerCase(),w=colorOf(p)==='w',idx=w?i:63-i;let v=VAL[t]+(t==='p'?PSTp[idx]:t==='n'?PSTn[idx]:0);s+=w?v:-v;}return s;}
+function order(bd,ms){return ms.map(m=>{let s=0;if(bd[m.t]!=='.')s=10*VAL[bd[m.t].toLowerCase()]-VAL[bd[m.f].toLowerCase()];if(m.promo)s+=800;return[s,m];}).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);}
+function quiesce(bd,col,cas,epi,alpha,beta){nodes++;let st=(col==='w'?1:-1)*evaluate(bd);if(st>=beta)return beta;if(st>alpha)alpha=st;
+  for(const m of order(bd,pseudo(bd,col,cas,epi).filter(m=>bd[m.t]!=='.'||m.promo))){const a=applyMove(bd,m,col,cas,epi);if(inCheck(a.bd,col))continue;
+    const sc=-quiesce(a.bd,opp(col),a.cas,a.ep,-beta,-alpha);if(sc>=beta)return beta;if(sc>alpha)alpha=sc;}return alpha;}
+function negamax(bd,col,cas,epi,d,alpha,beta,ply2){if((nodes&1023)===0&&performance.now()>deadline)throw't';
+  if(d<=0)return quiesce(bd,col,cas,epi,alpha,beta);let ms=legalMoves(bd,col,cas,epi);if(!ms.length)return inCheck(bd,col)?-99999+ply2:0;ms=order(bd,ms);let best=-1e9;
+  for(const m of ms){const a=applyMove(bd,m,col,cas,epi);const sc=-negamax(a.bd,opp(col),a.cas,a.ep,d-1,-beta,-alpha,ply2+1);if(sc>best)best=sc;if(best>alpha)alpha=best;if(alpha>=beta)break;}return best;}
+function searchMove(col){let ms=order(board,statusLegal(col));if(!ms.length)return null;let bestMove=ms[0];deadline=performance.now()+(DEPTH>=4?1200:400);nodes=0;
+  for(let d=1;d<=DEPTH;d++){let best=-1e9,lb=bestMove,alpha=-1e9;try{for(const m of ms){const a=applyMove(board,m,col,castle,ep);const sc=-negamax(a.bd,opp(col),a.cas,a.ep,d-1,-1e9,-alpha,1);if(sc>best){best=sc;lb=m;}if(best>alpha)alpha=best;}bestMove=lb;ms.splice(ms.indexOf(bestMove),1);ms.unshift(bestMove);}catch(e){break;}if(performance.now()>deadline)break;}
+  return bestMove;}
+
+/* ---- sound ---- */
+let AC;function beep(f,d,t,v){if(!sound)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.15,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
+const sMove=()=>beep(320,.08,'triangle',.12),sCap=()=>{beep(150,.22,'sawtooth',.2);setTimeout(()=>beep(90,.25,'square',.15),40);};
+const sSpell=()=>{[300,500,760].forEach((f,i)=>setTimeout(()=>beep(f,.16,'sine',.16),i*60));},sCheck=()=>beep(700,.14,'sine',.2),sWin=()=>[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.25,'sine',.2),i*140));
+function toggleSound(){sound=!sound;document.getElementById('sndBtn').textContent=sound?'🔊':'🔇';}
+
+/* ---- render ---- */
+function toDisp(i){let r=i/8|0,c=i%8;if(orient==='b'){r=7-r;c=7-c;}return[r,c];}
+function pieceTransform(i){const[r,c]=toDisp(i);return`translate3d(${c*CELL}px,${r*CELL}px,0) translateZ(23px) rotateX(-50deg)`;}
+function buildSquares(){sqEl.innerHTML='';for(let i=0;i<64;i++){const[r,c]=toDisp(i);const d=document.createElement('div');d.className='sq '+(((i/8|0)+(i%8))%2?'d':'l');d.style.left=c*CELL+'px';d.style.top=r*CELL+'px';d.dataset.i=i;d.style.pointerEvents='auto';d.onclick=()=>click(i);sqEl.appendChild(d);}}
+function render(noTrans){if(noTrans)boardEl.classList.add('notrans');pcEl.innerHTML='';
+  for(let i=0;i<64;i++){const p=board[i];if(p==='.')continue;const d=document.createElement('div');d.className='piece '+colorOf(p);d.textContent=GLYPH[p.toLowerCase()];d.style.transform=pieceTransform(i);d.dataset.i=i;
+    if(isShielded(i)){const b=document.createElement('span');b.className='badge';b.textContent='🛡️';d.appendChild(b);}
+    if(isFrozen(i)){const b=document.createElement('span');b.className='badge';b.style.right='auto';b.style.left='4px';b.textContent='❄️';d.appendChild(b);}
+    pcEl.appendChild(d);}
+  if(noTrans){void boardEl.offsetWidth;boardEl.classList.remove('notrans');}updateMana();renderSpells();}
+function updateMana(){document.getElementById('manaFill').style.width=(mana[human]*10)+'%';document.getElementById('manaTxt').textContent=mana[human]+'/10';
+  document.getElementById('emanaFill').style.width=(mana[opp(human)]*10)+'%';document.getElementById('emanaTxt').textContent=mana[opp(human)]+'/10';}
+function renderSpells(){const box=document.getElementById('spells');box.innerHTML='';for(const sp of SPELLS){const b=document.createElement('button');b.className='spell'+(casting===sp.id?' active':'');
+  b.innerHTML=`<span class="ic">${sp.ic}</span><span class="nm">${sp.name}</span><span class="co">${sp.cost}◆</span>`;
+  b.disabled=busy||gameOver||turn!==human||mana[human]<sp.cost;b.onclick=()=>chooseSpell(sp);box.appendChild(b);}}
+function setStatus(t,cls){statusEl.textContent=t;statusEl.className='';if(cls)statusEl.classList.add(cls);}
+function highlight(){document.querySelectorAll('.sq').forEach(s=>{s.classList.remove('sel','tgt');[...s.querySelectorAll('.dot,.ring')].forEach(x=>x.remove());});
+  if(casting){for(const i of spellTargets(casting,human))document.querySelector(`.sq[data-i="${i}"]`).classList.add('tgt');return;}
+  if(sel==null)return;document.querySelector(`.sq[data-i="${sel}"]`).classList.add('sel');
+  for(const m of legal.filter(m=>m.f===sel)){const s=document.querySelector(`.sq[data-i="${m.t}"]`);const e=document.createElement('div');e.className=(board[m.t]!=='.'||m.fl==='ep')?'ring':'dot';s.appendChild(e);}}
+function markLast(a,b){document.querySelectorAll('.sq.last').forEach(s=>s.classList.remove('last'));if(a!=null)document.querySelector(`.sq[data-i="${a}"]`).classList.add('last');if(b!=null)document.querySelector(`.sq[data-i="${b}"]`).classList.add('last');}
+function shards(i,color){const[r,c]=toDisp(i);for(let k=0;k<10;k++){const s=document.createElement('div');s.className='shard';s.style.background=color==='w'?'#e8dfc8':'#3b3446';s.style.left=(c*CELL+CELL/2)+'px';s.style.top=(r*CELL+CELL/2)+'px';pcEl.appendChild(s);const ang=Math.random()*6.28,dist=28+Math.random()*40;s.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(ang)*dist}px,${Math.sin(ang)*dist-18}px) rotate(${Math.random()*360}deg)`,opacity:0}],{duration:600,easing:'ease-out'}).onfinish=()=>s.remove();}}
+
+/* ---- spells ---- */
+function spellTargets(id,col){const t=[];const enemy=opp(col);
+  for(let i=0;i<64;i++){const p=board[i];
+    if(id==='bolt'&&p!=='.'&&colorOf(p)===enemy&&p.toLowerCase()!=='k'&&!isShielded(i))t.push(i);
+    if(id==='freeze'&&p!=='.'&&colorOf(p)===enemy&&p.toLowerCase()!=='k')t.push(i);
+    if(id==='shield'&&p!=='.'&&colorOf(p)===col&&!isShielded(i))t.push(i);
+    if(id==='teleport'&&p!=='.'&&colorOf(p)===col&&p.toLowerCase()!=='k'&&!isFrozen(i))t.push(i);
+    if(id==='summon'&&p==='.'){const r=i/8|0;if((col==='w'&&r>=4)||(col==='b'&&r<=3))t.push(i);}}
+  return t;}
+function chooseSpell(sp){if(mana[human]<sp.cost)return;casting=(casting===sp.id)?null:sp.id;sel=null;
+  document.getElementById('hint').textContent=casting?SPELLS.find(s=>s.id===casting).desc+' — click a glowing target.':'';
+  if(casting==='teleport'&&tpFrom!=null)tpFrom=null;highlight();renderSpells();}
+let tpFrom=null;
+function castAt(i){const id=casting;const cost=SPELLS.find(s=>s.id===id).cost;
+  if(id==='teleport'){ if(tpFrom==null){ if(spellTargets('teleport',human).includes(i)){tpFrom=i;sel=i;highlightTeleDest();} return;}
+    // second click = destination (empty square, not self-check)
+    if(board[i]==='.'){const nb=board.slice();nb[i]=nb[tpFrom];nb[tpFrom]='.';if(!inCheck(nb,human)){finishSpell(id,cost,()=>{if(isShielded(tpFrom)){shield[i]=shield[tpFrom];delete shield[tpFrom];}board=nb;markLast(tpFrom,i);},'✨ Apparated!');tpFrom=null;return;}}
+    return;}
+  if(!spellTargets(id,human).includes(i))return;
+  if(id==='bolt')finishSpell(id,cost,()=>{const cp=board[i];shards(i,colorOf(cp));board[i]='.';delete shield[i];delete frozen[i];markLast(i,null);},'🔥 Fire Bolt!');
+  if(id==='freeze')finishSpell(id,cost,()=>{frozen[i]=ply+4;markLast(i,null);},'❄️ Frozen!');
+  if(id==='shield')finishSpell(id,cost,()=>{shield[i]=ply+4;markLast(i,null);},'🛡️ Shielded!');
+  if(id==='summon')finishSpell(id,cost,()=>{board[i]=human==='w'?'P':'p';markLast(i,null);},'🐍 Summoned!');
+}
+function highlightTeleDest(){document.querySelectorAll('.sq').forEach(s=>s.classList.remove('tgt'));document.querySelector(`.sq[data-i="${tpFrom}"]`).classList.add('sel');
+  for(let i=0;i<64;i++)if(board[i]==='.'){document.querySelector(`.sq[data-i="${i}"]`).classList.add('tgt');}}
+function finishSpell(id,cost,effect,msg){busy=true;casting=null;mana[human]-=cost;sSpell();effect();ply++;mana[human]=Math.min(10,mana[human]+1);turn=opp(human);
+  document.getElementById('hint').textContent='';setStatus(msg,'spell');render(false);setTimeout(()=>{if(!finished())aiTurn();},650);}
+
+/* ---- interaction ---- */
+function click(i){if(busy||gameOver||turn!==human)return;
+  if(casting){castAt(i);return;}
+  const mvs=legal.filter(m=>m.f===sel&&m.t===i);
+  if(mvs.length){if(mvs.length>1&&mvs[0].promo){askPromo(mvs);return;}playMove(mvs[0]);return;}
+  if(board[i]!=='.'&&colorOf(board[i])===human&&!isFrozen(i)){sel=i;legal=statusLegal(human);highlight();}
+  else{sel=null;highlight();}}
+function askPromo(mvs){const w=document.getElementById('promo'),o=document.getElementById('promoOpts');o.innerHTML='';for(const pp of['q','r','b','n']){const e=document.createElement('div');e.className='opt';e.textContent=GLYPH[pp];e.onclick=()=>{w.classList.remove('on');playMove(mvs.find(m=>m.promo===pp));};o.appendChild(e);}w.classList.add('on');}
+function commitMove(m,col){const cap=(m.fl==='ep')?((m.f/8|0)*8+m.t%8):(board[m.t]!=='.'?m.t:-1);
+  if(cap>=0){delete shield[cap];delete frozen[cap];}
+  if(shield[m.f]){shield[m.t]=shield[m.f];delete shield[m.f];}delete frozen[m.f];
+  const a=applyMove(board,m,col,castle,ep);board=a.bd;castle=a.cas;ep=a.ep;}
+function playMove(m){busy=true;sel=null;highlight();const col=turn;
+  const cap=(m.fl==='ep')?((m.f/8|0)*8+m.t%8):(board[m.t]!=='.'?m.t:-1);
+  const mover=[...pcEl.children].find(e=>+e.dataset.i===m.f),captured=cap>=0?[...pcEl.children].find(e=>+e.dataset.i===cap):null;
+  if(captured){const cp=board[cap];captured.style.setProperty('--t',pieceTransform(cap));captured.classList.add('smash');shards(cap,colorOf(cp));sCap();}else sMove();
+  if(mover)mover.style.transform=pieceTransform(m.t);
+  setTimeout(()=>{commitMove(m,col);ply++;mana[col]=Math.min(10,mana[col]+1);turn=opp(col);render(false);markLast(m.f,m.t);if(inCheck(board,turn))sCheck();
+    if(col===human){setStatus('The stone army stirs…','think');if(!finished())setTimeout(aiTurn,60);}else{if(!finished()){busy=false;legal=[];setStatus('Your move — or cast.',inCheck(board,human)?'check':'');}}},520);}
+
+/* ---- AI (chess + simple spell heuristics) ---- */
+function checkers(col){const ks=kingIdx(board,col),out=[];for(const m of pseudo(board,opp(col),castle,-1))if(m.t===ks)out.push(m.f);return out;}
+function aiTurn(){const ai=opp(human);if(gameOver)return;busy=true;setStatus('The stone army is thinking…','think');
+  setTimeout(()=>{
+    // spell heuristics
+    const chk=checkers(ai);
+    if(chk.length===1&&board[chk[0]].toLowerCase()!=='k'&&!isShielded(chk[0])&&mana[ai]>=5){return aiCast('bolt',chk[0],'🔥 The army strikes back!');}
+    if(!chk.length){
+      const q=board.indexOf(ai==='w'?'Q':'q');
+      if(q>=0&&attacked(board,q,human)&&!isShielded(q)&&mana[ai]>=2){return aiCast('shield',q,'🛡️ The army shields its queen.');}
+      // bolt a pawn about to promote
+      for(let i=0;i<64;i++){const p=board[i];if(p===(human==='w'?'P':'p')){const r=i/8|0;if((human==='w'&&r===1)||(human==='b'&&r===6)){if(!isShielded(i)&&mana[ai]>=5)return aiCast('bolt',i,'🔥 The army burns your pawn!');}}}
+    }
+    let m=searchMove(ai);if(!m){finished();return;}
+    // ensure legal under status (searchMove already uses statusLegal)
+    turn=ai;playAIMove(m);
+  },80);}
+function aiCast(id,i,msg){const ai=opp(human);const cost=SPELLS.find(s=>s.id===id).cost;mana[ai]-=cost;sSpell();
+  if(id==='bolt'){const cp=board[i];shards(i,colorOf(cp));board[i]='.';delete shield[i];delete frozen[i];}
+  if(id==='shield')shield[i]=ply+4;if(id==='freeze')frozen[i]=ply+4;
+  ply++;mana[ai]=Math.min(10,mana[ai]+1);turn=human;markLast(i,null);setStatus(msg,'spell');render(false);
+  setTimeout(()=>{if(!finished()){busy=false;legal=[];setStatus('Your move — or cast.',inCheck(board,human)?'check':'');}},600);}
+function playAIMove(m){const col=opp(human);const cap=(m.fl==='ep')?((m.f/8|0)*8+m.t%8):(board[m.t]!=='.'?m.t:-1);
+  const mover=[...pcEl.children].find(e=>+e.dataset.i===m.f),captured=cap>=0?[...pcEl.children].find(e=>+e.dataset.i===cap):null;
+  if(captured){const cp=board[cap];captured.style.setProperty('--t',pieceTransform(cap));captured.classList.add('smash');shards(cap,colorOf(cp));sCap();}else sMove();
+  if(mover)mover.style.transform=pieceTransform(m.t);
+  setTimeout(()=>{commitMove(m,col);ply++;mana[col]=Math.min(10,mana[col]+1);turn=human;render(false);markLast(m.f,m.t);if(inCheck(board,human))sCheck();
+    if(!finished()){busy=false;legal=[];setStatus('Your move — or cast.',inCheck(board,human)?'check':'');}},520);}
+
+/* ---- end / new ---- */
+function finished(){const moves=statusLegal(turn);if(moves.length){if(inCheck(board,turn))setStatus((turn===human?'You are':'The army is')+' in check!','check');return false;}
+  // if no moves but has mana to cast a freeing spell, not necessarily over — but keep simple: mate/stalemate on king check
+  if(inCheck(board,turn)){gameOver=true;busy=true;const win=turn!==human;setStatus(win?'Checkmate — YOU WIN! 🏆':'Checkmate — the stone army wins ⚰',win?'':'check');sWin();return true;}
+  // stalemate only if also cannot cast anything meaningful
+  if(mana[turn]<2){gameOver=true;busy=true;setStatus('Stalemate — a draw.');return true;}
+  return false;}
+function newGame(){DEPTH=+document.getElementById('depth').value;human='w';orient='w';
+  board=START.slice();turn='w';castle={K:1,Q:1,k:1,q:1};ep=-1;sel=null;legal=[];gameOver=false;busy=false;
+  mana={w:2,b:2};frozen={};shield={};ply=0;casting=null;tpFrom=null;
+  buildSquares();render(true);setStatus('Your move — or cast a spell.');}
+document.getElementById('depth').onchange=e=>DEPTH=+e.target.value;
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>kalshibot · swarm command center</title>
+<style>
+  :root{--bg:#070a12;--panel:#0d121f;--panel2:#111829;--line:#1d2740;--txt:#dbe5ff;
+    --dim:#7c89ad;--green:#27e0a3;--red:#ff5d73;--blue:#49b4ff;--gold:#ffc861;--violet:#b388ff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
+  header{display:flex;align-items:center;gap:14px;padding:11px 18px;
+    border-bottom:1px solid var(--line);background:linear-gradient(90deg,#0a0f1c,#0d1322);flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;letter-spacing:2px}
+  header h1 .v{color:var(--violet)}
+  .badge{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--line)}
+  .badge.sim{color:var(--blue);border-color:#1d3f5a;background:#0c1f2a}
+  .badge.on{color:var(--green);border-color:#1d5a45;background:#0c2a20}
+  .badge.off{color:var(--gold);border-color:#5a4a1d;background:#2a230c}
+  .stats{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap}
+  .stat{text-align:right}
+  .stat .k{font-size:9px;color:var(--dim);letter-spacing:1px}
+  .stat .v{font-size:17px;font-weight:600}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  .controls{display:flex;gap:14px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);
+    background:var(--panel);flex-wrap:wrap}
+  button{cursor:pointer;border:1px solid var(--line);color:var(--txt);
+    background:linear-gradient(180deg,#1b2949,#121a30);
+    padding:9px 16px;border-radius:9px;font-family:inherit;font-size:12px;font-weight:600;
+    box-shadow:0 3px 0 #0a1124,0 4px 10px rgba(0,0,0,.4);
+    transition:transform .08s ease, box-shadow .08s ease, border-color .15s ease;
+    transform:perspective(400px) translateZ(0)}
+  button:hover{border-color:var(--blue);transform:perspective(400px) translateY(-2px) rotateX(8deg);
+    box-shadow:0 6px 0 #0a1124,0 10px 18px rgba(73,180,255,.25)}
+  button:active{transform:perspective(400px) translateY(2px);box-shadow:0 1px 0 #0a1124}
+  button.go{border-color:#1d5a45;color:var(--green);background:linear-gradient(180deg,#103a2c,#0c2a20)}
+  button.stop{border-color:#5a2330;color:var(--red);background:linear-gradient(180deg,#3a1620,#2a0c12)}
+  .sld{display:flex;flex-direction:column;font-size:10px;color:var(--dim);min-width:130px}
+  .sld b{color:var(--txt)} input[type=range]{accent-color:var(--violet)}
+  main{display:grid;grid-template-columns:1fr 360px;gap:14px;padding:14px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+  .card h2{font-size:11px;margin:0 0 10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--dim);font-weight:400;font-size:10px;letter-spacing:1px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.live td:first-child::before{content:"●";color:var(--violet);margin-right:6px;font-size:9px}
+  canvas.spark{vertical-align:middle}
+  .rankdot{display:inline-block;width:18px;color:var(--dim)}
+  .market div{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+  .market span{color:var(--dim)}
+  .log{font-size:11px;line-height:1.7;color:var(--dim);max-height:130px;overflow-y:auto}
+  .note{font-size:10px;color:var(--gold);margin-top:8px;line-height:1.5}
+  .navlink{font-size:11px;color:var(--blue);text-decoration:none;border:1px solid var(--line);
+    padding:5px 10px;border-radius:7px}
+</style>
+</head>
+<body>
+<header>
+  <h1>KALSHI<span class="v">BOT</span> · SWARM COMMAND CENTER</h1>
+  <span id="runpill" class="badge off">PAUSED</span>
+  <span class="badge sim">SIMULATION · NO REAL MONEY · numbers are real, often red</span>
+  <a class="navlink" href="/">single-agent deck →</a>
+  <div class="stats">
+    <div class="stat"><div class="k">SWARM EQUITY</div><div class="v" id="s-eq">$0</div></div>
+    <div class="stat"><div class="k">SWARM P&L</div><div class="v" id="s-pnl">$0</div></div>
+    <div class="stat"><div class="k">FEES PAID</div><div class="v" id="s-fees">$0</div></div>
+    <div class="stat"><div class="k">PROFITABLE</div><div class="v" id="s-win">0/0</div></div>
+    <div class="stat"><div class="k">MARKETS</div><div class="v" id="s-mkt">0</div></div>
+  </div>
+</header>
+<div class="controls">
+  <button class="go" onclick="ctl('start')">▶ Start swarm</button>
+  <button class="stop" onclick="ctl('pause')">⏸ Pause</button>
+  <button onclick="ctl('reset')">⟳ Reset</button>
+  <div class="sld"><label>Agents <b id="l-ag">8</b></label>
+    <input type="range" id="r-ag" min="1" max="25" value="8" oninput="tune(true)"></div>
+  <div class="sld"><label>Signal edge (%) <b id="l-ed">0</b></label>
+    <input type="range" id="r-ed" min="0" max="100" step="5" value="0" oninput="tune()"></div>
+  <div class="sld"><label>Speed (ticks/s) <b id="l-sp">12</b></label>
+    <input type="range" id="r-sp" min="1" max="40" value="12" oninput="tune()"></div>
+</div>
+<main>
+  <div>
+    <div class="card">
+      <h2>Agent Leaderboard (live)</h2>
+      <table>
+        <thead><tr><th>#</th><th>agent</th><th>strategy</th><th class="num">equity</th>
+          <th class="num">P&L</th><th class="num">fees</th><th class="num">trades</th><th>equity curve</th></tr></thead>
+        <tbody id="board"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Strategy performance & P&L distribution</h2>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px">avg P&L by strategy</div>
+          <canvas id="bars" height="150" style="width:100%"></canvas>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px">agent P&L distribution</div>
+          <canvas id="hist" height="150" style="width:100%"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Swarm equity vs cumulative fees</h2>
+      <canvas id="agg" height="150" style="width:100%"></canvas>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Live Market (BTC 15m)</h2>
+      <div class="market">
+        <div><span>now</span><b>$<span id="m-price">—</span></b></div>
+        <div><span>target</span><b>$<span id="m-target">—</span></b></div>
+        <div><span>book imbalance</span><b id="m-imb">—</b></div>
+        <div><span>expires in</span><b id="m-left">—</b></div>
+      </div>
+      <canvas id="gauge" height="70" style="width:100%;margin-top:6px"></canvas>
+    </div>
+    <div class="card">
+      <h2>Technical Metrics (live, real)</h2>
+      <div class="market">
+        <div><span>invested (11 × $21)</span><b id="x-inv">—</b></div>
+        <div><span>net of fees</span><b id="x-net">—</b></div>
+        <div><span>fee drag</span><b id="x-drag">—</b></div>
+        <div><span>total trades</span><b id="x-tr">—</b></div>
+        <div><span>avg fee / trade</span><b id="x-aft">—</b></div>
+        <div><span>best / worst agent</span><b id="x-bw">—</b></div>
+        <div><span>max drawdown</span><b id="x-dd">—</b></div>
+        <div><span>swarm Sharpe (rough)</span><b id="x-sh">—</b></div>
+        <div><span>signal edge (assumed)</span><b id="x-edge">—</b></div>
+      </div>
+      <div id="reality" style="margin-top:8px;font-size:11px;padding:7px;border-radius:7px;
+        border:1px solid var(--line);text-align:center"></div>
+    </div>
+    <div class="card">
+      <h2>🧠 Supervisor (monitors + allocates)</h2>
+      <div id="sup-dir" style="font-size:11px;line-height:1.5;color:var(--txt);margin-bottom:8px"></div>
+      <div id="sup-rank" style="font-size:11px;color:var(--dim)"></div>
+    </div>
+    <div class="card">
+      <h2>Activity Log</h2>
+      <div class="log" id="log"></div>
+      <div class="note">⚠ This looks like the "$100k bot" dashboards online — but those post
+      fake green numbers to bait follows/DMs. Here the leaderboard shows REAL paper
+      results, which is why it usually bleeds to fees. That honesty is the point.</div>
+    </div>
+  </div>
+</main>
+<script>
+let STATE=null, aggHist=[];
+function pn(el,v,txt){el.textContent=txt;el.className='v '+(v>0?'pos':v<0?'neg':'');}
+function hexA(h,a){const n=parseInt(h.slice(1),16);return`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+
+function spark(cv,arr,col){
+  const x=cv.getContext('2d'),W=cv.width=120,H=cv.height=24;
+  x.clearRect(0,0,W,H); if(arr.length<2)return;
+  let lo=Math.min(...arr),hi=Math.max(...arr); if(hi-lo<.01){hi+=.5;lo-=.5;}
+  const base=arr[0];
+  x.strokeStyle="rgba(124,137,173,.4)";x.setLineDash([2,2]);x.beginPath();
+  const by=H-2-((base-lo)/(hi-lo))*(H-4);x.moveTo(0,by);x.lineTo(W,by);x.stroke();x.setLineDash([]);
+  x.strokeStyle=col;x.lineWidth=1.5;x.beginPath();
+  arr.forEach((v,i)=>{const px=(i/(arr.length-1))*W,py=H-2-((v-lo)/(hi-lo))*(H-4);i?x.lineTo(px,py):x.moveTo(px,py);});
+  x.stroke();
+}
+function drawAgg(){
+  const cv=document.getElementById('agg'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;
+  x.clearRect(0,0,W,H); if(aggHist.length<2)return;
+  const eq=aggHist.map(d=>d.eq),fe=aggHist.map(d=>d.fee),inv=aggHist[0].inv;
+  const all=eq.concat(fe).concat([inv]);let lo=Math.min(...all),hi=Math.max(...all);if(hi-lo<1)hi=lo+1;
+  const yOf=v=>H-8-((v-lo)/(hi-lo))*(H-16);
+  x.strokeStyle="rgba(124,137,173,.4)";x.setLineDash([4,4]);x.beginPath();
+  x.moveTo(0,yOf(inv));x.lineTo(W,yOf(inv));x.stroke();x.setLineDash([]);
+  x.fillStyle="rgba(124,137,173,.8)";x.font="10px monospace";x.fillText("invested $"+inv.toFixed(0),6,yOf(inv)-4);
+  const line=(a,c)=>{x.strokeStyle=c;x.lineWidth=2;x.beginPath();
+    a.forEach((v,i)=>{const px=(i/(a.length-1))*W,py=yOf(v);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();};
+  line(eq,"#27e0a3");line(fe,"#ffc861");
+  x.fillStyle="#27e0a3";x.fillText("equity $"+eq[eq.length-1].toFixed(0),6,14);
+  x.fillStyle="#ffc861";x.fillText("fees $"+fe[fe.length-1].toFixed(0),6,27);
+}
+
+function drawBars(agents){
+  const cv=document.getElementById('bars'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const by={};agents.forEach(a=>{(by[a.strategy]=by[a.strategy]||[]).push(a.pnl);});
+  const keys=Object.keys(by);const avg=keys.map(k=>by[k].reduce((s,v)=>s+v,0)/by[k].length);
+  const mx=Math.max(1,...avg.map(Math.abs));const bw=W/keys.length;const zero=H/2;
+  x.strokeStyle="rgba(124,137,173,.4)";x.beginPath();x.moveTo(0,zero);x.lineTo(W,zero);x.stroke();
+  keys.forEach((k,i)=>{const v=avg[i],h=(Math.abs(v)/mx)*(H/2-12);
+    x.fillStyle=v>=0?"#27e0a3":"#ff5d73";
+    x.fillRect(i*bw+6,v>=0?zero-h:zero,bw-12,h);
+    x.fillStyle="#dbe5ff";x.font="9px monospace";x.textAlign="center";
+    x.fillText(k,i*bw+bw/2,H-3);x.fillText((v>=0?'+':'')+v.toFixed(0),i*bw+bw/2,v>=0?zero-h-3:zero+h+9);});
+  x.textAlign="left";
+}
+function drawHist(agents){
+  const cv=document.getElementById('hist'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const v=agents.map(a=>a.pnl);if(!v.length)return;
+  let lo=Math.min(...v),hi=Math.max(...v);if(hi-lo<1){hi+=1;lo-=1;}
+  const nb=9,buckets=new Array(nb).fill(0);
+  v.forEach(p=>{let b=Math.floor((p-lo)/(hi-lo)*nb);b=Math.max(0,Math.min(nb-1,b));buckets[b]++;});
+  const mx=Math.max(...buckets),bw=W/nb;
+  buckets.forEach((c,i)=>{const h=(c/mx)*(H-22);const mid=lo+(i+0.5)/nb*(hi-lo);
+    x.fillStyle=mid>=0?"rgba(39,224,163,.8)":"rgba(255,93,115,.8)";
+    x.fillRect(i*bw+2,H-14-h,bw-4,h);});
+  x.fillStyle="var(--dim)";x.font="9px monospace";
+  x.fillText('$'+lo.toFixed(0),2,H-2);x.textAlign="right";x.fillText('$'+hi.toFixed(0),W-2,H-2);x.textAlign="left";
+}
+function drawGauge(im){
+  const cv=document.getElementById('gauge'),x=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth,H=cv.height;x.clearRect(0,0,W,H);
+  const cx=W/2,cy=H-6,R=H-16;
+  x.lineWidth=8;x.strokeStyle="rgba(40,55,90,.6)";x.beginPath();x.arc(cx,cy,R,Math.PI,0);x.stroke();
+  const ang=Math.PI+(im+1)/2*Math.PI;
+  x.strokeStyle=im>=0?"#27e0a3":"#ff5d73";x.beginPath();x.arc(cx,cy,R,Math.PI,ang);x.stroke();
+  x.strokeStyle="#dbe5ff";x.lineWidth=2;x.beginPath();x.moveTo(cx,cy);
+  x.lineTo(cx+Math.cos(ang)*R*0.9,cy+Math.sin(ang)*R*0.9);x.stroke();
+  x.fillStyle="var(--dim)";x.font="9px monospace";x.textAlign="center";
+  x.fillText("← sell      ORDER FLOW      buy →",cx,H-1);x.textAlign="left";
+}
+async function poll(){
+  try{const r=await fetch('/api/swarm');STATE=await r.json();render();}catch(e){}
+}
+function render(){
+  const T=STATE.totals;
+  document.getElementById('s-eq').textContent='$'+T.equity.toFixed(2);
+  pn(document.getElementById('s-pnl'),T.pnl,(T.pnl>=0?'+$':'-$')+Math.abs(T.pnl).toFixed(2));
+  document.getElementById('s-fees').textContent='$'+T.fees.toFixed(2);
+  document.getElementById('s-win').textContent=T.winners+'/'+STATE.n_agents;
+  document.getElementById('s-mkt').textContent=STATE.markets_done;
+  const rp=document.getElementById('runpill');
+  rp.textContent=STATE.running?'RUNNING':'PAUSED';rp.className='badge '+(STATE.running?'on':'off');
+  document.getElementById('m-price').textContent=STATE.price.toFixed(2);
+  document.getElementById('m-target').textContent=STATE.target.toFixed(2);
+  const im=document.getElementById('m-imb');im.textContent=(STATE.imbalance>0?'+':'')+STATE.imbalance.toFixed(2);
+  im.className=STATE.imbalance>=0?'pos':'neg';
+  const sl=STATE.seconds_left;document.getElementById('m-left').textContent=
+    Math.floor(sl/60)+':'+String(sl%60).padStart(2,'0');
+  // leaderboard
+  const tb=document.getElementById('board');
+  tb.innerHTML=STATE.agents.map((a,i)=>{
+    const cls=a.pnl>=0?'pos':'neg';const medal=i<3?['🥇','🥈','🥉'][i]:(i+1);
+    return `<tr class="${a.activity>0.3?'live':''}">
+      <td><span class="rankdot">${medal}</span></td>
+      <td>${a.label}</td><td style="color:var(--dim)">${a.strategy}</td>
+      <td class="num">$${a.equity.toFixed(2)}</td>
+      <td class="num ${cls}">${a.pnl>=0?'+':''}${a.pnl.toFixed(2)}</td>
+      <td class="num" style="color:var(--gold)">$${a.fees.toFixed(0)}</td>
+      <td class="num">${a.trades}</td>
+      <td><canvas class="spark" id="sp${i}" width="120" height="24"></canvas></td></tr>`;
+  }).join('');
+  STATE.agents.forEach((a,i)=>{const c=document.getElementById('sp'+i);
+    if(c)spark(c,a.spark,a.pnl>=0?'#27e0a3':'#ff5d73');});
+  // aggregate history
+  aggHist.push({eq:T.equity,fee:T.fees,inv:T.invested});
+  if(aggHist.length>240)aggHist.shift();
+  drawAgg();drawBars(STATE.agents);drawHist(STATE.agents);drawGauge(STATE.imbalance);
+  // technical metrics
+  const tr=STATE.agents.reduce((s,a)=>s+a.trades,0);
+  document.getElementById('x-inv').textContent='$'+T.invested.toFixed(2);
+  const net=document.getElementById('x-net');net.textContent=(T.pnl>=0?'+$':'-$')+Math.abs(T.pnl).toFixed(2);
+  net.className=T.pnl>=0?'pos':'neg';
+  document.getElementById('x-drag').textContent=T.equity>0?(100*T.fees/T.invested).toFixed(1)+'% of capital':'—';
+  document.getElementById('x-tr').textContent=tr;
+  document.getElementById('x-aft').textContent=tr?('$'+(T.fees/tr).toFixed(3)):'—';
+  document.getElementById('x-bw').textContent=
+    '+'+STATE.agents[0].pnl.toFixed(0)+' / '+STATE.agents[STATE.agents.length-1].pnl.toFixed(0);
+  // risk metrics from the swarm equity curve
+  const eqs=aggHist.map(d=>d.eq);
+  let peak=-1e9,maxdd=0;eqs.forEach(v=>{peak=Math.max(peak,v);maxdd=Math.max(maxdd,(peak-v)/peak);});
+  document.getElementById('x-dd').textContent=(maxdd*100).toFixed(1)+'%';
+  let sh='—';
+  if(eqs.length>5){const rets=[];for(let i=1;i<eqs.length;i++)rets.push((eqs[i]-eqs[i-1]));
+    const m=rets.reduce((s,v)=>s+v,0)/rets.length;
+    const sd=Math.sqrt(rets.reduce((s,v)=>s+(v-m)*(v-m),0)/rets.length)||1e-9;
+    sh=(m/sd).toFixed(2);}
+  const shEl=document.getElementById('x-sh');shEl.textContent=sh;
+  shEl.className=parseFloat(sh)>0?'pos':parseFloat(sh)<0?'neg':'';
+  const edge=Math.round((STATE.params.signal_edge||0)*100);
+  document.getElementById('x-edge').textContent=edge+'%';
+  // honesty banner baked into the UI
+  const rb=document.getElementById('reality');
+  if(edge>0){rb.textContent='⚠ ASSUMING a '+edge+'% signal edge — UNPROVEN. This green is a "what-if", not a discovered edge.';
+    rb.style.color='var(--gold)';rb.style.borderColor='#5a4a1d';rb.style.background='#2a230c';}
+  else{rb.textContent='✓ ZERO-EDGE REALITY — no crystal ball. This is the honest baseline (it bleeds to fees).';
+    rb.style.color='var(--green)';rb.style.borderColor='#1d5a45';rb.style.background='#0c2a20';}
+  if(STATE.supervisor){
+    document.getElementById('sup-dir').textContent='▶ '+STATE.supervisor.directive;
+    document.getElementById('sup-rank').innerHTML=STATE.supervisor.ranking.map(r=>
+      `${r.strategy}: <b style="color:${r.avg_pnl>=0?'var(--green)':'var(--red)'}">${r.avg_pnl>=0?'+':''}${r.avg_pnl}</b>/agent`).join(' &nbsp; ');
+  }
+  document.getElementById('log').innerHTML=STATE.events.map(e=>`<div>${e}</div>`).join('');
+}
+async function ctl(cmd){await fetch('/api/swarm/control',{method:'POST',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})});poll();}
+let tuneT=null;
+function tune(resetAgg){
+  const ag=+r('r-ag'),ed=+r('r-ed'),sp=+r('r-sp');
+  document.getElementById('l-ag').textContent=ag;
+  document.getElementById('l-ed').textContent=ed;
+  document.getElementById('l-sp').textContent=sp;
+  if(resetAgg)aggHist=[];
+  clearTimeout(tuneT);tuneT=setTimeout(()=>{
+    fetch('/api/swarm/control',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({cmd:'set_params',agents:ag,signal_edge:ed/100,speed:sp})});
+  },150);
+}
+function r(id){return document.getElementById(id).value;}
+poll();setInterval(poll,400);
+</script>
+</body>
+</html>
