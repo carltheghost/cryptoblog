@@ -206,7 +206,11 @@ function newGame(){DEPTH=+document.getElementById('depth').value;human='w';
   board=START.slice();turn='w';castle={K:1,Q:1,k:1,q:1};ep=-1;selSq=null;legal=[];gameOver=false;busy=false;
   placePieces();highlight();setStatus('Your move.');}
 document.getElementById('depth').onchange=e=>DEPTH=+e.target.value;
-initScene();newGame();
+function fail(msg){const d=document.createElement('div');d.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:16px;color:#ffd7a0;background:#0a0712;z-index:99';d.innerHTML='<div><h2>Wizard\'s Chess 3D could not start</h2><p>'+msg+'</p></div>';document.body.appendChild(d);}
+try{
+  if(typeof THREE==='undefined')throw new Error('The 3D engine (three.min.js) did not load. Use the SINGLE-FILE version, or run it with the included server (Play (Windows).bat).');
+  initScene();newGame();
+}catch(err){fail(err.message||err);}
 </script>
 </body>
 </html>
